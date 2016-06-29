@@ -116,7 +116,7 @@ measurements:
       zlib: True
       fletcher32: True
       attrs:
-          long_name: "Non-green cover fraction percentage + 100""
+          long_name: "Non-green cover fraction percentage + 100"
           alias: "dead"
     - name: BS
       dtype: uint8
@@ -124,7 +124,7 @@ measurements:
       zlib: True
       fletcher32: True
       attrs:
-          long_name: "Bare ground fraction percentage + 100""
+          long_name: "Bare ground fraction percentage + 100"
           alias: "bare"
     - name: UE
       dtype: float16

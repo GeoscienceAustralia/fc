@@ -103,6 +103,7 @@ storage:
 
 measurements:
     - name: PV
+      units: "1"
       dtype: uint8
       nodata: 0
       zlib: True
@@ -111,22 +112,25 @@ measurements:
           long_name: "Green cover fraction percentage + 100"
           alias: "green"
     - name: NPV
+      units: "1"
       dtype: uint8
       nodata: 0
       zlib: True
       fletcher32: True
       attrs:
-          long_name: "Non-green cover fraction percentage + 100""
+          long_name: "Non-green cover fraction percentage + 100"
           alias: "dead"
     - name: BS
+      units: "1"
       dtype: uint8
       nodata: 0
       zlib: True
       fletcher32: True
       attrs:
-          long_name: "Bare ground fraction percentage + 100""
+          long_name: "Bare ground fraction percentage + 100"
           alias: "bare"
     - name: UE
+      units: "1"
       dtype: float16
       nodata: 0
       zlib: True
