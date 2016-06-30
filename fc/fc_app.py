@@ -1,25 +1,24 @@
 from __future__ import absolute_import, print_function
 
-from datetime import datetime
 import logging
 from copy import deepcopy
+from datetime import datetime
 
 import click
-from pathlib import Path
 from pandas import to_datetime
+from pathlib import Path
 
 from datacube.api.grid_workflow import GridWorkflow
-from datacube.ui import click as ui
 from datacube.model import DatasetType, GeoPolygon, Range
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.storage.storage import write_dataset_to_netcdf
+from datacube.ui import click as ui
+from datacube.ui.task_app import task_app, task_app_options, get_full_lineage
 from datacube.utils import intersect_points, union_points, unsqueeze_dataset
-
 from fc.fractional_cover import fractional_cover
-from fc.task_app import task_app, task_app_options, get_full_lineage
 
 
-_LOG = logging.getLogger('grid-app')
+_LOG = logging.getLogger('agdc-fc')
 
 
 def make_fc_config(index, config, **query):
@@ -194,4 +193,3 @@ def fc_app(index, config, tasks, executor, dry_run, *ars, **kwargs):
             continue
 
     click.echo('%d successful, %d failed' % (successful, failed))
-
