@@ -111,6 +111,7 @@ measurements:
       attrs:
           long_name: "Green cover fraction percentage + 100"
           alias: "green"
+      aliases: ["green_veg"]
     - name: NPV
       units: "1"
       dtype: uint8
@@ -120,6 +121,7 @@ measurements:
       attrs:
           long_name: "Non-green cover fraction percentage + 100"
           alias: "dead"
+      aliases: ["dead_veg"]
     - name: BS
       units: "1"
       dtype: uint8
@@ -129,6 +131,7 @@ measurements:
       attrs:
           long_name: "Bare ground fraction percentage + 100"
           alias: "bare"
+      aliases: ["bare"]
     - name: UE
       units: "1"
       dtype: float16
@@ -138,3 +141,4 @@ measurements:
       attrs:
           long_name: "Unmixing error"
           alias: "err"
+      aliases: ["err"]
