@@ -23,27 +23,30 @@ _LOG = logging.getLogger('agdc-fc')
 
 def make_fc_config(index, config, **query):
     dry_run = query.get('dry_run', False)
+    config['overwrite'] = query.get('overwrite', False)
 
     source_type = index.products.get_by_name(config['source_type'])
     if not source_type:
         _LOG.error("Source DatasetType %s does not exist", config['source_type'])
         return 1
 
-    output_type = DatasetType(source_type.metadata_type, deepcopy(source_type.definition))
-    output_type.definition['name'] = config['output_type']
-    output_type.definition['managed'] = True
-    output_type.definition['description'] = config['description']
-    output_type.definition['storage'] = config['storage']
-    output_type.metadata['format'] = {'name': 'NetCDF'}
+    output_type_definition = deepcopy(source_type.definition)
+    output_type_definition['name'] = config['output_type']
+    output_type_definition['managed'] = True
+    output_type_definition['description'] = config['description']
+    output_type_definition['storage'] = config['storage']
+    output_type_definition['metadata']['format'] = {'name': 'NetCDF'}
+    output_type_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
 
-    var_param_keys = {'zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs'}
+    var_def_keys = {'name', 'dtype', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
 
-    output_type.definition['measurements'] = [{k: v for k, v in measurement.items() if k not in var_param_keys}
+    output_type_definition['measurements'] = [{k: v for k, v in measurement.items() if k in var_def_keys}
                                               for measurement in config['measurements']]
 
     chunking = config['storage']['chunking']
     chunking = [chunking[dim] for dim in config['storage']['dimension_order']]
 
+    var_param_keys = {'zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs'}
     variable_params = {}
     for mapping in config['measurements']:
         varname = mapping['name']
@@ -51,6 +54,8 @@ def make_fc_config(index, config, **query):
         variable_params[varname]['chunksizes'] = chunking
 
     config['variable_params'] = variable_params
+
+    output_type = DatasetType(source_type.metadata_type, output_type_definition)
 
     if not dry_run:
         _LOG.info('Created DatasetType %s', output_type.name)
@@ -157,7 +162,11 @@ def do_fc_task(config, task):
         return dataset
     sources = task['nbar']['sources']
     datasets = xr_apply(sources, _make_dataset, dtype='O')
-    nbar['dataset'] = datasets_to_doc(datasets)
+    fc_out['dataset'] = datasets_to_doc(datasets)
+
+    if config.get('overwrite', False):
+        fc_out.unlink()
+
 
     write_dataset_to_netcdf(fc_out, global_attributes, variable_params, Path(file_path))
 
@@ -169,6 +178,7 @@ app_name = 'fc'
 @click.command(name=app_name)
 @ui.pass_index(app_name=app_name)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if everything is ok')
+@click.option('--overwrite', is_flag=True, default=False, help='Overwrite existing (un-indexed) files')
 @click.option('--year', help='Limit the process to a particulr year')
 @task_app_options
 @task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
