@@ -47,17 +47,18 @@ def fractional_cover(nbar_tile):
     nbar = nbar_tile.to_array(dim='band')
     nbar.data[:, ~is_valid_array.data] = no_data
 
-    output_data, output_err = compute_fractions(nbar.data)
+    output_data = compute_fractions(nbar.data)
 
     output_data[:, ~is_valid_array.data] = no_data
-    output_err[~is_valid_array.data] = no_data
 
     dims = ('band',) + nbar.dims[1:]
     coords = {k: v for k, v in nbar.coords.items()}
-    coords['band'] = ['PV', 'NPV', 'BS']
+    coords['band'] = ['PV', 'NPV', 'BS', 'UE']
     dataset = xarray.DataArray(output_data, dims=dims, coords=coords).to_dataset(dim='band')
     dataset.attrs = nbar_tile.attrs
-    dataset['UE'] = (dims[1:], output_err)
+
+    for d in dataset.data_vars.values():
+        d.attrs['crs'] = nbar.attrs['crs']
 
     return dataset
 
@@ -105,12 +106,13 @@ def compute_fractions(nbar):
     bare = numexpr.evaluate("bare / 0.01 + 100")
     numpy.clip(bare, a_min=0, a_max=255, out=bare)
 
-    output_data = numpy.array([green, dead, bare], dtype=numpy.uint8)
+    err = numexpr.evaluate("err + 100")
+    numpy.clip(err, a_min=0, a_max=255, out=err)
+
+    output_data = numpy.array([green, dead, bare, err], dtype=numpy.uint8)
     output_data[:, wh_unmix_err] = 0
 
-    err[wh_unmix_err] = 0
-
-    return output_data, err
+    return output_data
 
 
 def unmix(green, red, nir, swir1, swir2, sum_to_one_weight, endmembers_array):
