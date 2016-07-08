@@ -33,6 +33,8 @@ do
 shift # past argument or value
 done
 
+module load ${agdc_module}
+
 export module_name=agdc-fc
 export version=`git describe --tags --always`
 python_version=`python -c 'import sys; print "%s.%s"%sys.version_info[:2]'`
@@ -66,10 +68,14 @@ echo "Building Fortran Extension"
 pushd fc/unmix
 make clean
 make all
+
+mkdir -v -p "${python_dest}/fc/unmix/"
+cp -v unmiximage.so "${python_dest}/fc/unmix/"
+cp -v unmiximage.pyf "${python_dest}/fc/unmix/"
 popd
 
 echo "Installing:"
-python setup.py install "--prefix=${module_dest}"
+pip install . --prefix "${module_dest}" --no-deps
 
 # Copy the scripts into the module dir
 cp -v -r scripts "${module_dest}/"
