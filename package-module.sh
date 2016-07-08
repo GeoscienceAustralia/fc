@@ -4,7 +4,7 @@ set -eu
 
 umask 002
 
-variant=dev
+variant=prod
 export module_dir=/g/data/v10/public/modules
 export agdc_module=agdc-py2-prod
 export module_description="Datacube Fractional Cover utilities and configuration"
@@ -35,8 +35,10 @@ done
 
 export module_name=agdc-fc
 export version=`git describe --tags --always`
+python_version=`python -c 'import sys; print "%s.%s"%sys.version_info[:2]'`
 
 export module_dest=${module_dir}/${module_name}/${version}
+export python_dest=${module_dest}/lib/python${python_version}/site-packages
 
 echo '# Packaging '$module_name' v '$version' to '$module_dest' #'
 read -p "Continue? " -n 1 -r
@@ -52,16 +54,34 @@ then
     exit 0
 fi
 
-mkdir -v -p "${module_dest}"
-cp -v -r scripts "${module_dest}/"
-cp -v -r products "${module_dest}/"
+# Setuptools requires the destination to be on the path, as it tests that the target is loadable.
+echo "Creating directory"
+mkdir -v -p "${python_dest}"
 
+# Make the module dir as well?
+mkdir -v -p "${module_dest}"
+
+export PYTHONPATH="${PYTHONPATH}:${python_dest}"
+echo "Building Fortran Extension"
+pushd fc/unmix
+make clean
+make all
+popd
+
+echo "Installing:"
+python setup.py install "--prefix=${module_dest}"
+
+# Copy the scripts into the module dir
+cp -v -r scripts "${module_dest}/"
+
+# Add the version to each of the config files
 mkdir -v "${module_dest}/config"
 for i in `ls config`
 do
   render config/${i} ${module_dest}/config/${i}
 done
 
+# make the environment.sh for the
 echo module use "${module_dir}/modulefiles" > "${module_dest}/scripts/environment.sh"
 echo module load ${agdc_module} >> "${module_dest}/scripts/environment.sh"
 
