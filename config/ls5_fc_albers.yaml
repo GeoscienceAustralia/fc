@@ -3,6 +3,7 @@ output_type: ls5_fc_albers
 version: ${version}
 
 description: Landsat 5 Fractional Cover 25 metre, 100km tile, Australian Albers Equal Area projection (EPSG:3577)
+product_type: fractional_cover
 
 location: '/g/data/fk4/datacube/002/'
 file_path_template: 'LS5_TM_FC/{tile_index[0]}_{tile_index[1]}/LS5_TM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}.nc'
@@ -103,6 +104,7 @@ storage:
 
 measurements:
     - name: PV
+      units: "1"
       dtype: uint8
       nodata: 0
       zlib: True
@@ -112,6 +114,7 @@ measurements:
           alias: "green"
       aliases: ["green_veg"]
     - name: NPV
+      units: "1"
       dtype: uint8
       nodata: 0
       zlib: True
@@ -121,6 +124,7 @@ measurements:
           alias: "dead"
       aliases: ["dead_veg"]
     - name: BS
+      units: "1"
       dtype: uint8
       nodata: 0
       zlib: True
@@ -130,7 +134,8 @@ measurements:
           alias: "bare"
       aliases: ["bare"]
     - name: UE
-      dtype: float16
+      units: "1"
+      dtype: uint8
       nodata: 0
       zlib: True
       fletcher32: True
