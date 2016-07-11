@@ -188,7 +188,8 @@ def fc_app(index, config, tasks, executor, dry_run, *ars, **kwargs):
     results = []
     for task in tasks:
         click.echo('Running task: {}'.format(task))
-        results.append(executor.submit(do_fc_task, config=config, task=task))
+        if not dry_run:
+            results.append(executor.submit(do_fc_task, config=config, task=task))
 
     successful = failed = 0
     for result in executor.as_completed(results):
