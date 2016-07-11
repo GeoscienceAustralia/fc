@@ -38,7 +38,7 @@ def make_fc_config(index, config, **query):
     output_type_definition['metadata']['format'] = {'name': 'NetCDF'}
     output_type_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
 
-    var_def_keys = {'name', 'dtype', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
+    var_def_keys = {'name', 'dtype', 'nodata', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
 
     output_type_definition['measurements'] = [{k: v for k, v in measurement.items() if k in var_def_keys}
                                               for measurement in config['measurements']]
