@@ -71,7 +71,8 @@ def qsub(app_config, year, queue, project, nodes, walltime, name, config=None, e
     subprocess.check_call(cmd, shell=True)
 
   name = name or taskfile.stem
-  app_cmd = 'datacube-fc -v --load-tasks "%(taskfile)s" --executor distributed DSCHEDULER' % dict(
+  app_cmd = 'datacube-fc -v %(config_arg)s --load-tasks "%(taskfile)s" --executor distributed DSCHEDULER' % dict(
+      config_arg=config_arg,
       taskfile=taskfile,
   )
 
@@ -87,7 +88,7 @@ def qsub(app_config, year, queue, project, nodes, walltime, name, config=None, e
       walltime=walltime,
   )
 
-  qsub = 'qsub -q %(queue)s -N %(name)s -P %(project)s -l $(l_args)s -- /bin/bash %(distr_cmd)s'
+  qsub = 'qsub -q %(queue)s -N %(name)s -P %(project)s -l %(l_args)s -- /bin/bash %(distr_cmd)s'
   cmd = qsub % dict(queue=queue,
                     name=name,
                     project=project,
