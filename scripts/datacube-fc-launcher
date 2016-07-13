@@ -1,0 +1,103 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+
+import os
+import subprocess
+import click
+from pathlib import Path
+
+
+ROOT_DIR = Path(__file__).absolute().parent.parent
+CONFIG_DIR = ROOT_DIR/'config'
+SCRIPT_DIR = ROOT_DIR/'scripts'
+
+
+@click.group()
+def cli():
+  pass
+
+
+@cli.command()
+def list():
+  for cfg in CONFIG_DIR.glob('*.yaml'):
+    print(cfg.name)
+
+
+@cli.command()
+@click.option('--queue', '-q', default='normal',
+              type=click.Choice(['normal', 'express']))
+@click.option('--project', '-P', default='v10')
+@click.option('--nodes', '-n', required=True,
+              help='Number of nodes to request',
+              type=click.IntRange(1, 100))
+@click.option('--walltime', '-t', default=10,
+              help='Number of hours to request',
+              type=click.IntRange(1, 10))
+@click.option('--name', help='Job name to use')
+@click.option('--config', help='Datacube config file',
+              type=click.Path(exists=True, dir_okay=False))
+@click.option('--env', help='Node environment setup script',
+              type=click.Path(exists=True, dir_okay=False))
+@click.argument('app_config')
+@click.argument('year', type=click.IntRange(1960, 2060))
+def qsub(app_config, year, queue, project, nodes, walltime, name, config=None, env=None):
+  app_config = CONFIG_DIR/app_config
+  taskfile = Path(app_config.stem + '_' + str(year) + '.bin').absolute()
+  if not app_config.exists():
+    print('%s is not a valid Fractional Cover application config file' % app_config)
+    return 1
+
+  config_arg = '-C "%(config)s"' % dict(config=config) if config else ''
+
+  check_cmd = 'datacube %(config_arg)s -v system check' % dict(
+      config_arg=config_arg,
+  )
+  subprocess.check_call(check_cmd, shell=True)
+  env_arg = '--env "%(env)s"' % dict(env=env) if env else ''
+
+  prep = 'datacube-fc -v %(config_arg)s --app-config "%(app_config)s" --year %(year)s --save-tasks "%(taskfile)s"'
+  cmd = prep % dict(config_arg=config_arg,
+                    app_config=app_config,
+                    taskfile=taskfile,
+                    year=year)
+  if click.confirm('\n'+cmd+'\nRUN?', default=True):
+    subprocess.check_call(cmd, shell=True)
+
+  test = 'datacube-fc -v %(config_arg)s --load-tasks "%(taskfile)s" --dry-run'
+  cmd = test % dict(config_arg=config_arg,
+                    taskfile=taskfile)
+  if click.confirm('\n'+cmd+'\nRUN?', default=False):
+    subprocess.check_call(cmd, shell=True)
+
+  name = name or taskfile.stem
+  app_cmd = 'datacube-fc -v --load-tasks "%(taskfile)s" --executor distributed DSCHEDULER' % dict(
+      taskfile=taskfile,
+  )
+
+  distr_cmd = '"%(distr)s" %(env_arg)s --ppn 16 %(app_cmd)s' % dict(
+      distr=SCRIPT_DIR/'distributed.sh',
+      env_arg=env_arg,
+      app_cmd=app_cmd,
+  )
+
+  l_args = 'ncpus=%(ncpus)d,mem=%(mem)dgb,walltime=%(walltime)d:00:00' % dict(
+      ncpus=nodes*16,
+      mem=nodes*31,
+      walltime=walltime,
+  )
+
+  qsub = 'qsub -q %(queue)s -N %(name)s -P %(project)s -l $(l_args)s -- /bin/bash %(distr_cmd)s'
+  cmd = qsub % dict(queue=queue,
+                    name=name,
+                    project=project,
+                    l_args=l_args,
+                    distr_cmd=distr_cmd,
+                   )
+
+  if click.confirm('\n'+cmd+'\nRUN?', default=True):
+    subprocess.check_call(cmd, shell=True)
+
+
+if __name__ == '__main__':
+  cli()

@@ -89,7 +89,7 @@ done
 
 # make the environment.sh for the
 echo module use "${module_dir}/modulefiles" > "${module_dest}/scripts/environment.sh"
-echo module load ${agdc_module} >> "${module_dest}/scripts/environment.sh"
+echo module load "${module_name}/${version}" >> "${module_dest}/scripts/environment.sh"
 
 modulefile_dir="${module_dir}/modulefiles/${module_name}"
 mkdir -v -p "${modulefile_dir}"
