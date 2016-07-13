@@ -5,7 +5,7 @@ Fractional Cover measures the photosynthetic, non-photosynthetic and bare earth 
 ## Installation
 To install the module on raijin:
 
-Checout the branch you wish to install to temp directory
+Checkout the tagged branch you wish to install to temp directory, then:
 
 ```
 $ module use /g/data/v10/public/modules/modulefiles/
@@ -27,7 +27,7 @@ $ module load agdc-fc
 $ datacube-fc-launcher list
 ```
 
-This will list the availiable app configs.
+This will list the availiable app configs:
 ```
 ls5_fc_albers.yaml
 ls7_fc_albers.yaml
@@ -40,7 +40,7 @@ Run the launcher with the `qsub` command, specifying the app config, year, and P
 * `-n 1` number of nodes
 * `-t 1` number of hours (walltime)
 ```
-datacube-fc-launcher qsub ls5_fc_albers.yaml 1994 -q normal -P v10 -n 1 -t 1
+$ datacube-fc-launcher qsub ls5_fc_albers.yaml 1993 -q normal -P v10 -n 1 -t 1
 ```
 
 It will check to make sure it can access the database:
@@ -59,7 +59,7 @@ You have MANAGE privileges.
 
 Then is will create the task file, and create the output product definition in the database if needed:
 ```
-datacube-fc -v --app-config "/g/data/v10/public/modules/agdc-fc/1.0.0/config/ls5_fc_albers_test.yaml" --year 1994 --save-tasks "/g/data2/v10/public/modules/agdc-fc/1.0.0/scripts/ls5_fc_albers_test_1993.bin"
+datacube-fc -v --app-config "/g/data/v10/public/modules/agdc-fc/1.0.0/config/ls5_fc_albers_test.yaml" --year 1993 --save-tasks "/g/data2/v10/public/modules/agdc-fc/1.0.0/scripts/ls5_fc_albers_test_1993.bin"
 RUN? [Y/n]:
 
 2016-07-13 18:38:56,308 INFO Created DatasetType ls5_fc_albers
@@ -70,7 +70,7 @@ RUN? [Y/n]:
 
 It will loop through every task :
 ```
-datacube-fc -v -C "/home/547/adh547/fc/datacube.conf" --load-tasks "/g/data2/v10/public/modules/agdc-fc/1.0.0/scripts/ls5_fc_albers_test_1993.bin" --dry-run
+datacube-fc -v --load-tasks "/g/data2/v10/public/modules/agdc-fc/1.0.0/scripts/ls5_fc_albers_test_1993.bin" --dry-run
 RUN? [y/N]:
 
 Running task: {'filename': '/g/data/u46/users/adh547/datacube/002/LS5_TM_FC/15_-39/LS5_TM_FC_3577_15_-39_19930513231246500000.nc', 'nbar': {'geobox': GeoBox(4000, 4000, Affine(25.0, 0.0, 1500000.0,
@@ -87,3 +87,18 @@ qsub -q normal -N fctest -P v10 -l ncpus=16,mem=31gb,walltime=1:00:00 -- /bin/ba
 RUN? [Y/n]:
 
 ```
+
+It should then return a job id, such as `7517348.r-man2`
+
+## Tracking progress
+```
+qstat -u $USER
+
+qcat 7517348.r-man2 | head
+
+qcat 7517348.r-man2 | tail
+
+qps 7517348.r-man2
+```
+
+(TODO: Add instructions to connect to `distributed` web interface...)
