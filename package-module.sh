@@ -79,6 +79,7 @@ pip install . --prefix "${module_dest}" --no-deps
 
 # Copy the scripts into the module dir
 cp -v -r scripts "${module_dest}/"
+render scripts/distributed.sh "${module_dest}/scripts/distributed.sh"
 chmod a+x ${module_dest}/scripts/*
 
 # Add the version to each of the config files
