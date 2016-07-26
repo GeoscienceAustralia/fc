@@ -34,13 +34,10 @@ global_attributes:
 
     For the fractional cover bands (PV, NPV, BS)
 
-    0-100 = no data values
+    0-100 = fractional cover values that range between 1 and 100%
 
-    101-200 = fractional cover values that range between 1 and 100%
-
-    For example an area that has green (photosynthetic) vegetation cover of 50% would have a PV value of 150
-
-    For the unmixing error (UE) band, the values are scaled as per the JRSRP product.
+    The unmixing error (UE) band holds the residual error, defined as the Eclidean Norm of the Residual Vector.
+    High values express less confidence in the fractional components.
 
     Nationally consistent information about fractional cover dynamics is essential to addressing a range of natural
     resource challenges. These include land management practices, air quality, soil erosion, rangeland condition and
@@ -104,42 +101,50 @@ storage:
 
 measurements:
     - name: PV
-      units: "1"
-      dtype: uint8
-      nodata: 0
+      src_var: PV
+      units: "percent"
+      dtype: int8
+      nodata: -1
       zlib: True
       fletcher32: True
       attrs:
-          long_name: "Green cover fraction percentage + 100"
+          long_name: "Green cover fraction percentage"
+          comment: "Fraction of green cover including green groundcover and green leaf material over all strata, within the Landsat pixel, as percentages"
           alias: "green"
       aliases: ["green_veg"]
     - name: NPV
-      units: "1"
-      dtype: uint8
-      nodata: 0
+      src_var: NPV
+      units: "percent"
+      dtype: int8
+      nodata: -1
       zlib: True
       fletcher32: True
       attrs:
-          long_name: "Non-green cover fraction percentage + 100"
+          long_name: "Non-green cover fraction percentage"
+          comment: "Fraction of non green cover including litter, dead leaf and branches over all strata, within the Landsat pixel, as percentages"
           alias: "dead"
       aliases: ["dead_veg"]
     - name: BS
-      units: "1"
-      dtype: uint8
-      nodata: 0
+      src_var: BS
+      units: "percent"
+      dtype: int8
+      nodata: -1
       zlib: True
       fletcher32: True
       attrs:
-          long_name: "Bare ground fraction percentage + 100"
+          long_name: "Bare ground fraction percentage"
+          comment: "Fraction of bare ground including rock, bare and disturbed soil, within the Landsat pixel as percentages"
           alias: "bare"
       aliases: ["bare"]
     - name: UE
+      src_var: UE
       units: "1"
-      dtype: uint8
-      nodata: 0
+      dtype: int8
+      nodata: -1
       zlib: True
       fletcher32: True
       attrs:
           long_name: "Unmixing error"
+          comment: "Eclidean Norm of the Residual Vector"
           alias: "err"
       aliases: ["err"]
