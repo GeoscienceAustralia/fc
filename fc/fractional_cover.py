@@ -6,17 +6,21 @@ from math import ceil
 
 import xarray
 
+from datacube import Datacube
+from datacube.model import GeoBox
 from datacube.storage.masking import valid_data_mask
+# from datacube.utils import iter_slices
 
 from . import endmembers
 from .unmix import unmiximage
+from xarray import DataArray
 
 
 def endmembers_version():
     return '2014_07_23'
 
 
-def fractional_cover(nbar_tile):
+def fractional_cover(nbar_tile, geobox, measurements):
     """
     Given a tile of spectral observations compute the fractional components.
     The data should be a 2D array
@@ -41,7 +45,7 @@ def fractional_cover(nbar_tile):
     """
 
     # Set nodata to 0
-    no_data = 0
+    no_data = numpy.int8(0)
     is_valid_array = valid_data_mask(nbar_tile).to_array(dim='band').all(dim='band')
 
     nbar = nbar_tile.to_array(dim='band')
@@ -49,16 +53,20 @@ def fractional_cover(nbar_tile):
 
     output_data = compute_fractions(nbar.data)
 
-    output_data[:, ~is_valid_array.data] = no_data
+    def data_func(measurement):
+        band_names = ['PV', 'NPV', 'BS', 'UE']
+        src_var = measurement.get('src_var', None) or measurement.get('name')
+        i = band_names.index(src_var)
 
-    dims = ('band',) + nbar.dims[1:]
-    coords = {k: v for k, v in nbar.coords.items()}
-    coords['band'] = ['PV', 'NPV', 'BS', 'UE']
-    dataset = xarray.DataArray(output_data, dims=dims, coords=coords).to_dataset(dim='band')
-    dataset.attrs = nbar_tile.attrs
+        band_nodata = numpy.dtype(measurement['dtype']).type(measurement['nodata'])
+        compute_error = (output_data[i, :, :] == -1)
+        output_data[i, compute_error] = band_nodata
+        output_data[i, ~is_valid_array.data] = band_nodata
 
-    for d in dataset.data_vars.values():
-        d.attrs['crs'] = nbar.attrs['crs']
+        return output_data[i, :, :]
+
+    flat_coords = DataArray(None).coords
+    dataset = Datacube.create_storage(flat_coords, geobox, measurements, data_func)
 
     return dataset
 
@@ -97,20 +105,20 @@ def compute_fractions(nbar):
                                     "(bare == -10)")
 
     # scale the results and clip the range to (0, 255)
-    green = numexpr.evaluate("green / 0.01 + 100")
-    numpy.clip(green, a_min=0, a_max=255, out=green)
+    green = numexpr.evaluate("green / 0.01")
+    numpy.clip(green, a_min=0, a_max=127, out=green)
 
-    dead = numexpr.evaluate("(dead1 + dead2) / 0.01 + 100")
-    numpy.clip(dead, a_min=0, a_max=255, out=dead)
+    dead = numexpr.evaluate("(dead1 + dead2) / 0.01")
+    numpy.clip(dead, a_min=0, a_max=127, out=dead)
 
     bare = numexpr.evaluate("bare / 0.01 + 100")
-    numpy.clip(bare, a_min=0, a_max=255, out=bare)
+    numpy.clip(bare, a_min=0, a_max=127, out=bare)
 
-    err = numexpr.evaluate("err + 100")
-    numpy.clip(err, a_min=0, a_max=255, out=err)
+    err = numexpr.evaluate("err")
+    numpy.clip(err, a_min=0, a_max=127, out=err)
 
-    output_data = numpy.array([green, dead, bare, err], dtype=numpy.uint8)
-    output_data[:, wh_unmix_err] = 0
+    output_data = numpy.array([green, dead, bare, err], dtype=numpy.int8)
+    output_data[:, wh_unmix_err] = -1
 
     return output_data
 
@@ -246,6 +254,7 @@ def unmix(green, red, nir, swir1, swir2, sum_to_one_weight, endmembers_array):
     return fractions
 
 
+# TODO: Use datacube.utils.iter_tools when next version rolled out
 def iter_slices(shape, chunk_size):
     """
     Generates slices for a given shape
@@ -257,11 +266,12 @@ def iter_slices(shape, chunk_size):
 
     :param tuple(int) shape: Shape of an array
     :param tuple(int) chunk_size: length of each slice for each dimension
-    :return: Yeilds slices that can be used on an array of the given shape
+    :return: Yields slices that can be used on an array of the given shape
+
+    >>> list(iter_slices((5,), (2,)))
+    [(slice(0, 2, None),), (slice(2, 4, None),), (slice(4, 5, None),)]
     """
     assert len(shape) == len(chunk_size)
     num_grid_chunks = [int(ceil(s/float(c))) for s, c in zip(shape, chunk_size)]
     for grid_index in numpy.ndindex(*num_grid_chunks):
-        slices = tuple(slice(min(d*c, stop), min((d+1)*c, stop))
-                  for d, c, stop in zip(grid_index, chunk_size, shape))
-        yield slices
+        yield tuple(slice(min(d*c, stop), min((d+1)*c, stop)) for d, c, stop in zip(grid_index, chunk_size, shape))

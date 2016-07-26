@@ -128,9 +128,9 @@ def get_app_metadata(config):
     return doc
 
 
-def make_fc_tile(nbar):
+def make_fc_tile(nbar, geobox, measurements):
     input_tile = nbar.squeeze('time').drop('time')
-    data = fractional_cover(input_tile)
+    data = fractional_cover(input_tile, geobox, measurements)
     output_tile = unsqueeze_dataset(data, 'time', nbar.time)
     return output_tile
 
@@ -140,7 +140,8 @@ def do_fc_task(config, task):
 
     nbar = GridWorkflow.load(task['nbar'], measurements)
 
-    fc_out = make_fc_tile(nbar)
+    output_measurements = config['fc_dataset_type'].measurements.values()
+    fc_out = make_fc_tile(nbar, task['nbar']['geobox'], output_measurements)
 
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
@@ -164,9 +165,8 @@ def do_fc_task(config, task):
     datasets = xr_apply(sources, _make_dataset, dtype='O')
     fc_out['dataset'] = datasets_to_doc(datasets)
 
-    if config.get('overwrite', False):
-        fc_out.unlink()
-
+    if config.get('overwrite', False) and file_path.exists():
+        file_path.unlink()
 
     write_dataset_to_netcdf(fc_out, global_attributes, variable_params, Path(file_path))
 
@@ -179,7 +179,7 @@ app_name = 'fc'
 @ui.pass_index(app_name=app_name)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if everything is ok')
 @click.option('--overwrite', is_flag=True, default=False, help='Overwrite existing (un-indexed) files')
-@click.option('--year', help='Limit the process to a particulr year')
+@click.option('--year', type=click.IntRange(1960, 2060), help='Limit the process to a particular year')
 @task_app_options
 @task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
 def fc_app(index, config, tasks, executor, dry_run, *ars, **kwargs):
