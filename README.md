@@ -5,7 +5,18 @@ Fractional Cover measures the photosynthetic, non-photosynthetic and bare earth 
 ## Installation
 To install the module on raijin:
 
-Checkout the tagged branch you wish to install to temp directory, then:
+Checkout the tagged branch you wish to install to temp directory:
+
+```
+git clone git@github.com:GeoscienceAustralia/fc.git
+cd fc
+git checkout tags/1.0.2
+git describe --tags --always
+```
+
+The tagged version should be printed.
+
+Then to install:
 
 ```
 $ module use /g/data/v10/public/modules/modulefiles/
