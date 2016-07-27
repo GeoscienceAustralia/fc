@@ -1,6 +1,7 @@
 from __future__ import absolute_import, print_function
 
 import logging
+import os
 from copy import deepcopy
 from datetime import datetime
 
@@ -61,6 +62,9 @@ def make_fc_config(index, config, **query):
         _LOG.info('Created DatasetType %s', output_type.name)
         output_type = index.products.add(output_type)
 
+    if not os.access(config['location'], os.W_OK):
+        _LOG.warn('Current user appears not have write access output location: %s', config['location'])
+
     config['nbar_dataset_type'] = source_type
     config['fc_dataset_type'] = output_type
 
@@ -118,7 +122,7 @@ def get_app_metadata(config):
     doc = {
         'lineage': {
             'algorithm': {
-                'name': 'datacube-ingest',
+                'name': 'datacube-fc',
                 'version': config.get('version', 'unknown'),
                 'repo_url': 'https://github.com/GeoscienceAustralia/fc.git',
                 'parameters': {'configuration_file': config.get('app_config_file', 'unknown')}

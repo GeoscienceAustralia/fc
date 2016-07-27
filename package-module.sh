@@ -47,7 +47,8 @@ read -p "Continue? " -n 1 -r
 echo    # (optional) move to a new line
 
 function render {
-    envsubst < "$1" > "$2"
+    vars='$module_dir:$agdc_module:$module_description:$module_name:$version:$module_dest:$python_dest'
+    envsubst $vars < "$1" > "$2"
     echo Wrote "$2"
 }
 
