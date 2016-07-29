@@ -3,7 +3,6 @@ from __future__ import absolute_import
 import numpy
 import numexpr
 from math import ceil
-
 import xarray
 
 from datacube import Datacube
@@ -14,6 +13,12 @@ from datacube.storage.masking import valid_data_mask
 from . import endmembers
 from .unmix import unmiximage
 from xarray import DataArray
+
+try:
+    import mkl
+    mkl.get_version_string()
+except ImportError:
+    pass
 
 
 def endmembers_version():
