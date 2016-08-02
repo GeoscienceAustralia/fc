@@ -200,7 +200,7 @@ def fc_app(index, config, tasks, executor, dry_run, *ars, **kwargs):
         try:
             datasets = executor.result(result)
             for dataset in datasets.values:
-                index.datasets.add(dataset)
+                index.datasets.add(dataset, skip_sources=True)
             successful += 1
         except Exception as err:  # pylint: disable=broad-except
             _LOG.exception('Task failed: %s', err)

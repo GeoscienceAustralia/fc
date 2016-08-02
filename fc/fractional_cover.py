@@ -2,13 +2,11 @@ from __future__ import absolute_import
 
 import numpy
 import numexpr
-from math import ceil
 import xarray
 
 from datacube import Datacube
-from datacube.model import GeoBox
 from datacube.storage.masking import valid_data_mask
-# from datacube.utils import iter_slices
+from datacube.utils import iter_slices
 
 from . import endmembers
 from .unmix import unmiximage
@@ -95,7 +93,7 @@ def compute_fractions(nbar):
     band_index = (slice(0, None),)
 
     # calculate in chunks to stay under 2GB mem limit
-    chunk_size = (75, 4000)
+    chunk_size = (50, 4000)
     for geo_index in iter_slices(geo_shape, chunk_size):
         index = band_index + geo_index
         arr = nbar[index]
@@ -109,15 +107,15 @@ def compute_fractions(nbar):
                                     "(dead2 == -10) |"
                                     "(bare == -10)")
 
-    # scale the results and clip the range to (0, 255)
+    # scale the results and clip the range to (0, 100)
     green = numexpr.evaluate("green / 0.01")
-    numpy.clip(green, a_min=0, a_max=127, out=green)
+    numpy.clip(green, a_min=0, a_max=100, out=green)
 
     dead = numexpr.evaluate("(dead1 + dead2) / 0.01")
-    numpy.clip(dead, a_min=0, a_max=127, out=dead)
+    numpy.clip(dead, a_min=0, a_max=100, out=dead)
 
-    bare = numexpr.evaluate("bare / 0.01 + 100")
-    numpy.clip(bare, a_min=0, a_max=127, out=bare)
+    bare = numexpr.evaluate("bare / 0.01")
+    numpy.clip(bare, a_min=0, a_max=100, out=bare)
 
     err = numexpr.evaluate("err")
     numpy.clip(err, a_min=0, a_max=127, out=err)
@@ -257,26 +255,3 @@ def unmix(green, red, nir, swir1, swir2, sum_to_one_weight, endmembers_array):
     # 2013v gives green, dead1, dead2 and bare fractions
     # the last band should be the unmixing error
     return fractions
-
-
-# TODO: Use datacube.utils.iter_tools when next version rolled out
-def iter_slices(shape, chunk_size):
-    """
-    Generates slices for a given shape
-
-    E.g. ``shape=(4000, 4000), chunk_size=(500, 500)``
-    Would yield 64 tuples of slices, each indexing 500x500.
-
-    If the shape is not divisible by the chunk_size, the last chunk in each dimension will be smaller.
-
-    :param tuple(int) shape: Shape of an array
-    :param tuple(int) chunk_size: length of each slice for each dimension
-    :return: Yields slices that can be used on an array of the given shape
-
-    >>> list(iter_slices((5,), (2,)))
-    [(slice(0, 2, None),), (slice(2, 4, None),), (slice(4, 5, None),)]
-    """
-    assert len(shape) == len(chunk_size)
-    num_grid_chunks = [int(ceil(s/float(c))) for s, c in zip(shape, chunk_size)]
-    for grid_index in numpy.ndindex(*num_grid_chunks):
-        yield tuple(slice(min(d*c, stop), min((d+1)*c, stop)) for d, c, stop in zip(grid_index, chunk_size, shape))
