@@ -3,7 +3,7 @@
 env_script=${module_dest}/scripts/environment.sh
 ppn=1
 tpp=1
-umask=0027
+umask=0002
 
 while [[ $# > 0 ]]
 do
