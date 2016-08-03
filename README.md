@@ -1,4 +1,4 @@
-# Fraction Cover (fc)
+# Fractional Cover (fc)
 
 Fractional Cover measures the photosynthetic, non-photosynthetic and bare earth components of a Landsat image.
 
@@ -28,6 +28,22 @@ If it is correct, type **`y`** and press enter
 # Packaging agdc-fc v 1.0.0 to /g/data/v10/public/modules/agdc-fc/1.0.0 #
 Continue? 
 ```
+### Setup on VDI
+The first time you try to use raijin PBScommands from VDI, you will need to run:
+
+```
+$ remote-hpc-cmd init
+```
+
+See http://vdi.nci.org.au/help#heading=h.u1kl1j7vdt16 for more details.
+
+You will also need to setup datacube to work from VDI and rajin.
+```
+$ ssh raijin "cat .pgpass" >> ~/.pgpass
+$ chmod 0600 ~/.pgpass
+```
+
+See http://agdc-v2.readthedocs.io/en/stable/user/nci_usage.html for full details.
 
 ## Running
 To run fractional cover:
