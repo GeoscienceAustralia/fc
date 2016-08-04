@@ -1,5 +1,6 @@
 from __future__ import absolute_import, print_function
 
+import itertools
 import logging
 import os
 from copy import deepcopy
@@ -20,6 +21,11 @@ from fc.fractional_cover import fractional_cover
 
 
 _LOG = logging.getLogger('agdc-fc')
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+ch.setFormatter(formatter)
+_LOG.addHandler(ch)
 
 
 def make_fc_config(index, config, **query):
@@ -184,23 +190,35 @@ app_name = 'fc'
 @click.option('--dry-run', is_flag=True, default=False, help='Check if everything is ok')
 @click.option('--overwrite', is_flag=True, default=False, help='Overwrite existing (un-indexed) files')
 @click.option('--year', type=click.IntRange(1960, 2060), help='Limit the process to a particular year')
+@click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start ')
 @task_app_options
 @task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
-def fc_app(index, config, tasks, executor, dry_run, *ars, **kwargs):
+def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
     click.echo('Starting Fractional Cover processing...')
 
     results = []
-    for task in tasks:
-        click.echo('Running task: {}'.format(task))
+    tasks_backlog = itertools.islice(tasks, backlog)
+    for task in tasks_backlog:
+        _LOG.info('Running task: {}'.format(task['tile_index']))
         if not dry_run:
             results.append(executor.submit(do_fc_task, config=config, task=task))
 
+    click.echo('Backlog queue filled, waiting for first result...')
     successful = failed = 0
     for result in executor.as_completed(results):
+
+        # submit at new task: one in, one out
+        task = next(tasks, None)
+        if task:
+            _LOG.info('Running task: {}'.format(task['tile_index']))
+            if not dry_run:
+                results.append(executor.submit(do_fc_task, config=config, task=task))
+
         try:
             datasets = executor.result(result)
             for dataset in datasets.values:
                 index.datasets.add(dataset, skip_sources=True)
+                _LOG.info('Dataset added')
             successful += 1
         except Exception as err:  # pylint: disable=broad-except
             _LOG.exception('Task failed: %s', err)
