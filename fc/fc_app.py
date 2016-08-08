@@ -1,5 +1,6 @@
 from __future__ import absolute_import, print_function
 
+import errno
 import itertools
 import logging
 import os
@@ -30,7 +31,6 @@ _LOG.addHandler(ch)
 
 def make_fc_config(index, config, **query):
     dry_run = query.get('dry_run', False)
-    config['overwrite'] = query.get('overwrite', False)
 
     source_type = index.products.get_by_name(config['source_type'])
     if not source_type:
@@ -148,15 +148,18 @@ def make_fc_tile(nbar, geobox, measurements):
 def do_fc_task(config, task):
     measurements = ['green', 'red', 'nir', 'swir1', 'swir2']
 
-    nbar = GridWorkflow.load(task['nbar'], measurements)
-
-    output_measurements = config['fc_dataset_type'].measurements.values()
-    fc_out = make_fc_tile(nbar, task['nbar']['geobox'], output_measurements)
-
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
     file_path = Path(task['filename'])
     output_type = config['fc_dataset_type']
+
+    if file_path.exists():
+        raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+
+    nbar = GridWorkflow.load(task['nbar'], measurements)
+
+    output_measurements = config['fc_dataset_type'].measurements.values()
+    fc_out = make_fc_tile(nbar, task['nbar']['geobox'], output_measurements)
 
     def _make_dataset(labels, sources):
         assert len(sources)
@@ -175,9 +178,6 @@ def do_fc_task(config, task):
     datasets = xr_apply(sources, _make_dataset, dtype='O')
     fc_out['dataset'] = datasets_to_doc(datasets)
 
-    if config.get('overwrite', False) and file_path.exists():
-        file_path.unlink()
-
     write_dataset_to_netcdf(fc_out, global_attributes, variable_params, Path(file_path))
 
     return datasets
@@ -188,13 +188,36 @@ app_name = 'fc'
 @click.command(name=app_name)
 @ui.pass_index(app_name=app_name)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if everything is ok')
-@click.option('--overwrite', is_flag=True, default=False, help='Overwrite existing (un-indexed) files')
 @click.option('--year', type=click.IntRange(1960, 2060), help='Limit the process to a particular year')
 @click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start ')
 @task_app_options
 @task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
 def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
     click.echo('Starting Fractional Cover processing...')
+
+    if dry_run:
+        existing_files = []
+        total = 0
+        for task in tasks:
+            total += 1
+            file_path = Path(task['filename'])
+            file_info = ''
+            if file_path.exists():
+                existing_files.append(file_path)
+                file_info = ' - ALREADY EXISTS: {}'.format(file_path)
+            click.echo('Task: {}{}'.format(task['tile_index'], file_info))
+
+        if existing_files:
+            if click.confirm('There were {} existing files found that are not indexed. Delete those files now?'.format(
+                    len(existing_files))):
+                for file_path in existing_files:
+                    file_path.unlink()
+
+        click.echo('{total} tasks total to be run ({valid} valid tasks, {invalid} invalid tasks)'.format(
+            total=total, valid=total-len(existing_files), invalid=len(existing_files)
+        ))
+        click.echo('Dry-run complete')
+        return 0
 
     results = []
     tasks_backlog = itertools.islice(tasks, backlog)
