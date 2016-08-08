@@ -205,15 +205,19 @@ def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
 
     click.echo('Backlog queue filled, waiting for first result...')
     successful = failed = 0
-    for result in executor.as_completed(results):
 
-        # submit at new task: one in, one out
+    while results:
+        _LOG.info('Futures scheduled %d', len(results))
+        result, results = executor.next_completed(results, None)
+
+        # submit a new task to replace the one we just finished
         task = next(tasks, None)
         if task:
             _LOG.info('Running task: {}'.format(task['tile_index']))
             if not dry_run:
                 results.append(executor.submit(do_fc_task, config=config, task=task))
 
+        # Process the result
         try:
             datasets = executor.result(result)
             for dataset in datasets.values:
@@ -224,5 +228,8 @@ def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
             _LOG.exception('Task failed: %s', err)
             failed += 1
             continue
+        finally:
+            # Release the task to free memory so there is no leak in executor/scheduler/worker process
+            executor.release(result)
 
     click.echo('%d successful, %d failed' % (successful, failed))
