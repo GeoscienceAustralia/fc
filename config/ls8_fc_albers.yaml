@@ -100,6 +100,18 @@ storage:
   dimension_order: ['time', 'y', 'x']
 
 measurements:
+    - name: BS
+      src_var: BS
+      units: "percent"
+      dtype: int8
+      nodata: -1
+      zlib: True
+      fletcher32: True
+      attrs:
+          long_name: "Bare ground fraction percentage"
+          comment: "Fraction of bare ground including rock, bare and disturbed soil, within the Landsat pixel as percentages"
+          alias: "bare"
+      aliases: ["bare"]
     - name: PV
       src_var: PV
       units: "percent"
@@ -124,18 +136,6 @@ measurements:
           comment: "Fraction of non green cover including litter, dead leaf and branches over all strata, within the Landsat pixel, as percentages"
           alias: "dead"
       aliases: ["dead_veg"]
-    - name: BS
-      src_var: BS
-      units: "percent"
-      dtype: int8
-      nodata: -1
-      zlib: True
-      fletcher32: True
-      attrs:
-          long_name: "Bare ground fraction percentage"
-          comment: "Fraction of bare ground including rock, bare and disturbed soil, within the Landsat pixel as percentages"
-          alias: "bare"
-      aliases: ["bare"]
     - name: UE
       src_var: UE
       units: "1"
