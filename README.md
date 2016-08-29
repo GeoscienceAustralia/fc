@@ -2,8 +2,18 @@
 
 Fractional Cover measures the photosynthetic, non-photosynthetic and bare earth components of a Landsat image.
 
+
+
 ## Installation
 To install the module on raijin:
+
+### Update Collection Management Interface system
+
+Go to http://52.62.11.43/validate/6
+
+Ensure that the global attributes from CMI match the global attributes in the config files, and update appropriately.
+
+### Download from GitHub
 
 Checkout the tagged branch you wish to install to temp directory:
 
