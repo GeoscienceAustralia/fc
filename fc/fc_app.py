@@ -1,6 +1,7 @@
 from __future__ import absolute_import, print_function
 
 import errno
+import functools
 import itertools
 import logging
 import os
@@ -16,17 +17,12 @@ from datacube.model import DatasetType, GeoPolygon, Range
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
-from datacube.ui.task_app import task_app, task_app_options, get_full_lineage
+from datacube.ui.task_app import task_app, task_app_options
 from datacube.utils import intersect_points, union_points, unsqueeze_dataset
 from fc.fractional_cover import fractional_cover
 
 
 _LOG = logging.getLogger('agdc-fc')
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-ch.setFormatter(formatter)
-_LOG.addHandler(ch)
 
 
 def make_fc_config(index, config, **query):
@@ -91,7 +87,6 @@ def make_fc_tasks(index, config, **kwargs):
     workflow = GridWorkflow(index, output_type.grid_spec)
 
     # TODO: Filter query to valid options
-
     query = {}
     if 'year' in kwargs:
         year = int(kwargs['year'])
@@ -100,24 +95,12 @@ def make_fc_tasks(index, config, **kwargs):
     tiles_in = workflow.list_tiles(product=input_type.name, **query)
     tiles_out = workflow.list_tiles(product=output_type.name, **query)
 
-    # TODO: Move get_full_lineage & update_sources to GridWorkflow/Datacube/model?
-    def update_sources(sources):
-        return tuple(get_full_lineage(index, dataset.id) for dataset in sources)
-
-    def update_tile(tile):
-        for i in range(tile['sources'].size):
-            tile['sources'].values[i] = update_sources(tile['sources'].values[i])
-        return tile
-
-    def make_task(tile, **kwargs):
-        nbar = update_tile(tile.copy())
-        task = {
-            'nbar': nbar
-        }
-        task.update(kwargs)
+    def make_task(tile, **task_kwargs):
+        task = dict(nbar=workflow.update_tile_lineage(tile))
+        task.update(task_kwargs)
         return task
 
-    tasks = [make_task(tile, tile_index=key, filename=get_filename(config, tile_index=key, sources=tile['sources']))
+    tasks = [make_task(tile, tile_index=key, filename=get_filename(config, tile_index=key, sources=tile.sources))
              for key, tile in tiles_in.items() if key not in tiles_out]
 
     _LOG.info('%s tasks discovered', len(tasks))
@@ -138,10 +121,10 @@ def get_app_metadata(config):
     return doc
 
 
-def make_fc_tile(nbar, geobox, measurements):
+def make_fc_tile(nbar, measurements):
     input_tile = nbar.squeeze('time').drop('time')
-    data = fractional_cover(input_tile, geobox, measurements)
-    output_tile = unsqueeze_dataset(data, 'time', nbar.time)
+    data = fractional_cover(input_tile, measurements)
+    output_tile = unsqueeze_dataset(data, 'time', nbar.time[0])
     return output_tile
 
 
@@ -156,15 +139,16 @@ def do_fc_task(config, task):
     if file_path.exists():
         raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
 
-    nbar = GridWorkflow.load(task['nbar'], measurements)
+    nbar_tile = task['nbar']
+    nbar = GridWorkflow.load(nbar_tile, measurements)
 
     output_measurements = config['fc_dataset_type'].measurements.values()
-    fc_out = make_fc_tile(nbar, task['nbar']['geobox'], output_measurements)
+    fc_out = make_fc_tile(nbar, output_measurements)
 
     def _make_dataset(labels, sources):
         assert len(sources)
-        geobox = task['nbar']['geobox']
-        source_data = reduce(union_points, (dataset.extent.to_crs(geobox.crs).points for dataset in sources))
+        geobox = nbar.geobox
+        source_data = functools.reduce(union_points, (dataset.extent.to_crs(geobox.crs).points for dataset in sources))
         valid_data = intersect_points(geobox.extent.points, source_data)
         dataset = make_dataset(dataset_type=output_type,
                                sources=sources,
@@ -174,61 +158,69 @@ def do_fc_task(config, task):
                                app_info=get_app_metadata(config),
                                valid_data=GeoPolygon(valid_data, geobox.crs))
         return dataset
-    sources = task['nbar']['sources']
-    datasets = xr_apply(sources, _make_dataset, dtype='O')
+
+    datasets = xr_apply(nbar_tile.sources, _make_dataset, dtype='O')
     fc_out['dataset'] = datasets_to_doc(datasets)
 
-    write_dataset_to_netcdf(fc_out, global_attributes, variable_params, Path(file_path))
-
+    write_dataset_to_netcdf(
+        dataset=fc_out,
+        filename=Path(file_path),
+        global_attributes=global_attributes,
+        variable_params=variable_params,
+    )
     return datasets
 
-app_name = 'fc'
+
+def do_dry_run(tasks):
+    existing_files = []
+    total = 0
+    for task in tasks:
+        total += 1
+        file_path = Path(task['filename'])
+        file_info = ''
+        if file_path.exists():
+            existing_files.append(file_path)
+            file_info = ' - ALREADY EXISTS: {}'.format(file_path)
+        click.echo('Task: {}{}'.format(task['tile_index'], file_info))
+
+    if existing_files:
+        if click.confirm('There were {} existing files found that are not indexed. Delete those files now?'.format(
+                len(existing_files))):
+            for file_path in existing_files:
+                file_path.unlink()
+
+    click.echo('{total} tasks total to be run ({valid} valid tasks, {invalid} invalid tasks)'.format(
+        total=total, valid=total - len(existing_files), invalid=len(existing_files)
+    ))
+    click.echo('Dry-run complete')
 
 
-@click.command(name=app_name)
-@ui.pass_index(app_name=app_name)
+APP_NAME = 'fc'
+
+
+@click.command(name=APP_NAME)
+@ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if everything is ok')
 @click.option('--year', type=click.IntRange(1960, 2060), help='Limit the process to a particular year')
-@click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start ')
+@click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start')
 @task_app_options
 @task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
 def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
     click.echo('Starting Fractional Cover processing...')
 
     if dry_run:
-        existing_files = []
-        total = 0
-        for task in tasks:
-            total += 1
-            file_path = Path(task['filename'])
-            file_info = ''
-            if file_path.exists():
-                existing_files.append(file_path)
-                file_info = ' - ALREADY EXISTS: {}'.format(file_path)
-            click.echo('Task: {}{}'.format(task['tile_index'], file_info))
-
-        if existing_files:
-            if click.confirm('There were {} existing files found that are not indexed. Delete those files now?'.format(
-                    len(existing_files))):
-                for file_path in existing_files:
-                    file_path.unlink()
-
-        click.echo('{total} tasks total to be run ({valid} valid tasks, {invalid} invalid tasks)'.format(
-            total=total, valid=total-len(existing_files), invalid=len(existing_files)
-        ))
-        click.echo('Dry-run complete')
+        do_dry_run(tasks)
         return 0
 
     results = []
     tasks_backlog = itertools.islice(tasks, backlog)
     for task in tasks_backlog:
-        _LOG.info('Running task: {}'.format(task['tile_index']))
-        if not dry_run:
-            results.append(executor.submit(do_fc_task, config=config, task=task))
+        _LOG.info('Running task: %s', task['tile_index'])
+        results.append(executor.submit(do_fc_task, config=config, task=task))
 
     click.echo('Backlog queue filled, waiting for first result...')
-    successful = failed = 0
 
+    successful = failed = 0
     while results:
         _LOG.info('Futures scheduled %d', len(results))
         result, results = executor.next_completed(results, None)
@@ -236,9 +228,8 @@ def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
         # submit a new task to replace the one we just finished
         task = next(tasks, None)
         if task:
-            _LOG.info('Running task: {}'.format(task['tile_index']))
-            if not dry_run:
-                results.append(executor.submit(do_fc_task, config=config, task=task))
+            _LOG.info('Running task: %s', task['tile_index'])
+            results.append(executor.submit(do_fc_task, config=config, task=task))
 
         # Process the result
         try:
