@@ -19,13 +19,16 @@ setup(name='fc',
       maintainer_email='',
       packages=find_packages(),
       install_requires=[
+          'numpy',
           'datacube',
+          'click'
       ],
       entry_points={
           'console_scripts': [
               'datacube-fc = fc.fc_app:fc_app',
           ]
-      }
+      },
+      package_data={'fc.unmix': ['unmiximage.so', 'unmiximage.pyf']}
       )
 
 # from numpy.distutils.core import Extension, setup
