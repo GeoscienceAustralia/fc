@@ -6,7 +6,7 @@ This compiles all the Fortran extensions.
 """
 import os
 
-from setuptools import setup, find_packages
+from numpy.distutils.core import Extension, setup
 
 setup(name='fc',
       version=os.environ.get('version', 0.0),
@@ -17,7 +17,7 @@ setup(name='fc',
       author='AGDC Collaboration',
       maintainer='AGDC Collaboration',
       maintainer_email='',
-      packages=find_packages(),
+      packages=['fc', 'fc.unmix'],
       install_requires=[
           'numpy',
           'datacube',
@@ -28,19 +28,14 @@ setup(name='fc',
               'datacube-fc = fc.fc_app:fc_app',
           ]
       },
-      package_data={'fc.unmix': ['unmiximage.so', 'unmiximage.pyf']}
+      ext_modules=[
+          Extension(name='fc.unmix.unmiximage',
+                    sources=[
+                        'fc/unmix/unmiximage.f90',
+                        'fc/unmix/constants_NSWC.f90',
+                        'fc/unmix/nnls.f90',
+                        'fc/unmix/unmiximage.pyf',
+                    ],
+                    )]
       )
 
-# from numpy.distutils.core import Extension, setup
-#
-# setup(
-#     ext_modules=[
-#          Extension(name='fc.unmix.unmiximage',
-#                     sources=[
-#                         'fc/unmix/unmiximage.f90',
-#                         'fc/unmix/constants_NSWC.f90',
-#                         'fc/unmix/nnls.f90',
-#                     ],
-#                     f2py_options=['only:', 'unmiximage',  ':'])
-#     ]
-# )
