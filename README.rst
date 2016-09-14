@@ -32,7 +32,7 @@ The tagged version should be printed.
 Then to install::
 
     $ module use /g/data/v10/public/modules/modulefiles/
-    $ sh package-module.sh 
+    $ ./package-module.sh 
 
 You will be promted to check the package location and version. If it is
 correct, type **``y``** and press enter

@@ -11,7 +11,7 @@ from numpy.distutils.core import Extension, setup
 setup(name='fc',
       version=os.environ.get('version', 0.0),
       description='Geoscience Australia - Fractional Cover for AGDC',
-      long_description=open('README.md', 'r').read(),
+      long_description=open('README.rst', 'r').read(),
       license='Apache License 2.0',
       url='https://github.com/GeoscienceAustralia/fc',
       author='AGDC Collaboration',
