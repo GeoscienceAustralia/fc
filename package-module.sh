@@ -65,15 +65,6 @@ mkdir -v -p "${python_dest}"
 mkdir -v -p "${module_dest}"
 
 export PYTHONPATH="${PYTHONPATH}:${python_dest}"
-echo "Building Fortran Extension"
-pushd fc/unmix
-make clean
-make all
-
-mkdir -v -p "${python_dest}/fc/unmix/"
-cp -v unmiximage.so "${python_dest}/fc/unmix/"
-cp -v unmiximage.pyf "${python_dest}/fc/unmix/"
-popd
 
 echo "Installing:"
 pip install . --prefix "${module_dest}" --no-deps
