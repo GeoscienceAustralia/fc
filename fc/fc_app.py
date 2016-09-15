@@ -17,7 +17,7 @@ from datacube.model import DatasetType, GeoPolygon, Range
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
-from datacube.ui.task_app import task_app, task_app_options
+from datacube.ui.task_app import task_app, task_app_options, check_existing_files
 from datacube.utils import intersect_points, union_points, unsqueeze_dataset
 from fc.fractional_cover import fractional_cover
 
@@ -148,7 +148,7 @@ def do_fc_task(config, task):
     def _make_dataset(labels, sources):
         assert len(sources)
         geobox = nbar.geobox
-        source_data = functools.reduce(union_points, (dataset.extent.to_crs(geobox.crs).points for dataset in sources))
+        source_data = union_points(*[dataset.extent.to_crs(geobox.crs).points for dataset in sources])
         valid_data = intersect_points(geobox.extent.points, source_data)
         dataset = make_dataset(dataset_type=output_type,
                                sources=sources,
@@ -171,36 +171,12 @@ def do_fc_task(config, task):
     return datasets
 
 
-def do_dry_run(tasks):
-    existing_files = []
-    total = 0
-    for task in tasks:
-        total += 1
-        file_path = Path(task['filename'])
-        file_info = ''
-        if file_path.exists():
-            existing_files.append(file_path)
-            file_info = ' - ALREADY EXISTS: {}'.format(file_path)
-        click.echo('Task: {}{}'.format(task['tile_index'], file_info))
-
-    if existing_files:
-        if click.confirm('There were {} existing files found that are not indexed. Delete those files now?'.format(
-                len(existing_files))):
-            for file_path in existing_files:
-                file_path.unlink()
-
-    click.echo('{total} tasks total to be run ({valid} valid tasks, {invalid} invalid tasks)'.format(
-        total=total, valid=total - len(existing_files), invalid=len(existing_files)
-    ))
-    click.echo('Dry-run complete')
-
-
 APP_NAME = 'fc'
 
 
 @click.command(name=APP_NAME)
 @ui.pass_index(app_name=APP_NAME)
-@click.option('--dry-run', is_flag=True, default=False, help='Check if everything is ok')
+@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--year', type=click.IntRange(1960, 2060), help='Limit the process to a particular year')
 @click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start')
 @task_app_options
@@ -209,7 +185,7 @@ def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
     click.echo('Starting Fractional Cover processing...')
 
     if dry_run:
-        do_dry_run(tasks)
+        check_existing_files((task['filename'] for task in tasks))
         return 0
 
     results = []
@@ -222,7 +198,6 @@ def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
 
     successful = failed = 0
     while results:
-        _LOG.info('Futures scheduled %d', len(results))
         result, results = executor.next_completed(results, None)
 
         # submit a new task to replace the one we just finished
