@@ -124,7 +124,7 @@ def get_app_metadata(config):
 def make_fc_tile(nbar, measurements):
     input_tile = nbar.squeeze('time').drop('time')
     data = fractional_cover(input_tile, measurements)
-    output_tile = unsqueeze_dataset(data, 'time', nbar.time[0])
+    output_tile = unsqueeze_dataset(data, 'time', nbar.time.values[0])
     return output_tile
 
 
@@ -222,3 +222,6 @@ def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
             executor.release(result)
 
     click.echo('%d successful, %d failed' % (successful, failed))
+
+if __name__ == "__main__":
+    fc_app()
