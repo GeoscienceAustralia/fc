@@ -45,7 +45,7 @@ correct, type **``y``** and press enter
 Setup on VDI
 ~~~~~~~~~~~~
 
-The first time you try to use raijin PBScommands from VDI, you will need
+The first time you try to use raijin PBS commands from VDI, you will need
 to run::
 
     $ remote-hpc-cmd init
