@@ -8,5 +8,5 @@ pylint -j 2 --reports no fc
 
 # Run tests, taking coverage.
 # Users can specify extra folders as arguments.
-#py.test -r sx --cov datacube --durations=5 datacube tests $@
+py.test -r sx --cov fc --durations=5 fc tests $@
 
