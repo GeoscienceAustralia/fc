@@ -150,7 +150,7 @@ def do_fc_task(config, task):
         geobox = nbar.geobox
         source_data = union_points(*[dataset.extent.to_crs(geobox.crs).points for dataset in sources])
         valid_data = intersect_points(geobox.extent.points, source_data)
-        dataset = make_dataset(dataset_type=output_type,
+        dataset = make_dataset(product=output_type,
                                sources=sources,
                                extent=geobox.extent,
                                center_time=labels['time'],
