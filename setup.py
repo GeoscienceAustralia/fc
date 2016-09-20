@@ -6,7 +6,20 @@ This compiles all the Fortran extensions.
 """
 import os
 
-from numpy.distutils.core import Extension, setup
+from numpy.distutils.core import Extension, setup, Command
+
+
+class PyTest(Command):
+    user_options = []
+    def initialize_options(self):
+        pass
+    def finalize_options(self):
+        pass
+    def run(self):
+        import sys,subprocess
+        errno = subprocess.call([sys.executable, 'runtests.py'])
+        raise SystemExit(errno)
+
 
 setup(name='fc',
       version=os.environ.get('version', 0.0),
@@ -27,6 +40,9 @@ setup(name='fc',
           'console_scripts': [
               'datacube-fc = fc.fc_app:fc_app',
           ]
+      },
+      cmdclass={
+          'test': PyTest,
       },
       ext_modules=[
           Extension(name='fc.unmix.unmiximage',
