@@ -13,6 +13,7 @@ from pandas import to_datetime
 from pathlib import Path
 
 from datacube.api.grid_workflow import GridWorkflow
+from datacube.compat import integer_types
 from datacube.model import DatasetType, GeoPolygon, Range
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.storage.storage import write_dataset_to_netcdf
@@ -80,7 +81,7 @@ def get_filename(config, tile_index, sources):
                                      end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'))
 
 
-def make_fc_tasks(index, config, **kwargs):
+def make_fc_tasks(index, config, year=None, **kwargs):
     input_type = config['nbar_dataset_type']
     output_type = config['fc_dataset_type']
 
@@ -88,9 +89,11 @@ def make_fc_tasks(index, config, **kwargs):
 
     # TODO: Filter query to valid options
     query = {}
-    if 'year' in kwargs:
-        year = int(kwargs['year'])
-        query['time'] = Range(datetime(year=year, month=1, day=1), datetime(year=year+1, month=1, day=1))
+    if year is not None:
+        if isinstance(year, integer_types):
+            query['time'] = Range(datetime(year=year, month=1, day=1), datetime(year=year+1, month=1, day=1))
+        elif isinstance(year, tuple):
+            query['time'] = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1]+1, month=1, day=1))
 
     tiles_in = workflow.list_tiles(product=input_type.name, **query)
     tiles_out = workflow.list_tiles(product=output_type.name, **query)
@@ -171,13 +174,26 @@ def do_fc_task(config, task):
     return datasets
 
 
+def validate_year(ctx, param, value):
+    try:
+        if value is None:
+            return None
+        years = map(int, value.split('-', 2))
+        if len(years) == 1:
+            return years[0]
+        return tuple(years)
+    except ValueError:
+        raise click.BadParameter('year must be specified as a single year (eg 1996) '
+                                 'or as an inclusive range (eg 1996-2001)')
+
+
 APP_NAME = 'fc'
 
 
 @click.command(name=APP_NAME)
 @ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--year', type=click.IntRange(1960, 2060), help='Limit the process to a particular year')
+@click.option('--year', callback=validate_year, help='Limit the process to a particular year')
 @click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start')
 @task_app_options
 @task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
@@ -222,6 +238,7 @@ def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
             executor.release(result)
 
     click.echo('%d successful, %d failed' % (successful, failed))
+
 
 if __name__ == "__main__":
     fc_app()
