@@ -94,7 +94,7 @@ Options:
 * ``-n, --nodes INTEGER RANGE``     Number of *nodes* to request  [required]
 * ``-t, --walltime 4``              Number of *hours* to request
 * ``--name TEXT``                   Job name to use
-* ``--config PATH``                 Datacube config file (be default uses the currently loaded AGDC module
+* ``--config PATH``                 Datacube config file (be default uses the currently loaded AGDC module)
 * ``--env PATH``                    Node environment setup script (by default uses the installed production environment)
 * ``--help``                        Show help message.
 
@@ -103,36 +103,36 @@ and run the launcher specifying the app config, year (``1993`` or a range ``1993
 ::
 
     $ cd /g/data/v10/tmp
-    $ datacube-fc-launcher qsub ls5_fc_albers.yaml 1993-1996 -q normal -P v10 -n 1 -t 1
+    $ datacube-fc-launcher qsub ls5_fc_albers.yaml 1993-1996 -q normal -P v10 -n 25 -t 1
+    
+We have found for best throughput *25 nodes* can produce about 11.5 tiles per minute per node, with a CPU efficiency of about 96%.
 
 It will check to make sure it can access the database::
 
-
-    Version: 1.1.4
-    Read configurations files from: [u'/home/547/adh547/fc/datacube.conf']
+    Version: 1.1.9
+    Read configurations files from: ['/g/data/v10/public/modules/agdc-py2-prod/1.1.9/datacube.conf']
     Host: 130.56.244.227:6432
-    Database: unification
+    Database: datacube
     User: adh547
 
 
     Attempting connect
     Success.
-    You have MANAGE privileges.
 
 Then it will create the task file in the current working directory, and create the output product
 definition in the database (if it doesn't already exist)::
 
-    datacube-fc -v --app-config "/g/data/v10/public/modules/agdc-fc/1.0.0/config/ls5_fc_albers_test.yaml" --year 1993 --save-tasks "/g/data2/v10/public/modules/agdc-fc/1.0.0/scripts/ls5_fc_albers_test_1993.bin"
+    datacube-fc -v --app-config "/g/data/v10/public/modules/agdc-fc/1.0.0/config/ls5_fc_albers.yaml" --year 1993-1996 --save-tasks "/g/data/v10/tmp/ls5_fc_albers_test_1993-1996.bin"
     RUN? [Y/n]:
 
     2016-07-13 18:38:56,308 INFO Created DatasetType ls5_fc_albers
     2016-07-13 18:39:01,997 INFO 291 tasks discovered
     2016-07-13 18:39:01,998 INFO 291 tasks discovered
-    2016-07-13 18:39:02,127 INFO Saved config and tasks to /g/data2/v10/public/modules/agdc-fc/1.0.0/scripts/ls5_fc_albers_test_1993.bin
+    2016-07-13 18:39:02,127 INFO Saved config and tasks to /g/data/v10/tmp/ls5_fc_albers_test_1993-1996.bin
 
 It can then list every output file to be created and check that it does not yet exist::
 
-    datacube-fc -v --load-tasks "/g/data2/v10/public/modules/agdc-fc/1.0.0/scripts/ls5_fc_albers_test_1993.bin" --dry-run
+    datacube-fc -v --load-tasks "/g/data/v10/tmp/ls5_fc_albers_1993-1996.bin" --dry-run
     RUN? [y/N]:
 
     Starting Fractional Cover processing...
@@ -146,15 +146,14 @@ If any output files already exist, you will be asked if they should be deleted.
 
 Then it will ask to confirm the job should be submitted to PBS::
 
-    qsub -q normal -N fctest -P v10 -l ncpus=16,mem=31gb,walltime=1:00:00 -- /bin/bash "/g/data/v10/public/modules/agdc-fc/1.0.0/scripts/distributed.sh" --ppn 16 datacube-fc -v --load-tasks "/g/data2/v10/public/modules/agdc-fc/1.0.0/scripts/ls5_fc_albers_test_1993.bin" --executor distributed DSCHEDULER
+    qsub -q normal -N fctest -P v10 -l ncpus=16,mem=31gb,walltime=1:00:00 -- /bin/bash "/g/data/v10/public/modules/agdc-fc/1.0.0/scripts/distributed.sh" --ppn 16 datacube-fc -v --load-tasks "/g/data/v10/tmp/ls5_fc_albers_1993-1996.bin" --executor distributed DSCHEDULER
     RUN? [Y/n]:
 
 It should then return a job id, such as ``7517348.r-man2``
 
 If you say `no` to the last step, the task file you created can be submitted to qsub later by calling::
 
-    datacube-fc-launcher qsub -q normal -P v10 -n 1 --config ~/andrew.datacube.conf --taskfile "/home/547/adh547/ls5_fc_albers_1991-1992.bin" ls5_fc_albers.yaml
-
+    datacube-fc-launcher qsub -q normal -P v10 -n 1 --taskfile "/g/data/v10/tmp/ls5_fc_albers_1991-1992.bin" ls5_fc_albers.yaml
 
 
 Tracking progress
