@@ -22,7 +22,7 @@ global_attributes:
     non-negative least squares unmixing model. 
 
     A summary of the algorithm developed by the Joint Remote Sensing Centre is available from the AusCover
-    website: http://data.auscover.org.au/xwiki/bin/view/Product+pages/Landsat+Fractional+Cover 
+    website: http://www.auscover.org.au/purl/landsat-fractional-cover-jrsrp
 
     Fractional cover data  can be used to identify large scale patterns and trends and inform evidence based decision
     making and policy on topics including wind and water erosion risk, soil carbon dynamics, land management
