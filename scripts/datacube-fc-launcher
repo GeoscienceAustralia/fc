@@ -113,10 +113,11 @@ def do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg
         app_cmd=app_cmd,
     )
 
-    l_args = 'ncpus=%(ncpus)d,mem=%(mem)dgb,walltime=%(walltime)d:00:00' % dict(
+    l_args = 'ncpus=%(ncpus)d,mem=%(mem)dgb,walltime=%(walltime)d:00:00,other=%(other)s' % dict(
         ncpus=nodes * 16,
         mem=nodes * 31,
         walltime=walltime,
+        other='gdata2',
     )
 
     qsub = 'qsub -q %(queue)s -N %(name)s -P %(project)s -l %(l_args)s -- /bin/bash %(distr_cmd)s'

@@ -1,7 +1,6 @@
 from __future__ import absolute_import, print_function
 
 import errno
-import functools
 import itertools
 import logging
 import os
@@ -26,9 +25,7 @@ from fc.fractional_cover import fractional_cover
 _LOG = logging.getLogger('agdc-fc')
 
 
-def make_fc_config(index, config, **query):
-    dry_run = query.get('dry_run', False)
-
+def make_fc_config(index, config, dry_run=False, **query):
     source_type = index.products.get_by_name(config['source_type'])
     if not source_type:
         _LOG.error("Source DatasetType %s does not exist", config['source_type'])
