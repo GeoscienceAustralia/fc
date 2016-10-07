@@ -189,10 +189,11 @@ APP_NAME = 'fc'
 @ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--year', callback=validate_year, help='Limit the process to a particular year')
-@click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start')
+@click.option('--queue-size', '--backlog', type=click.IntRange(1, 100000), default=3200,
+              help='Number of tasks to queue at the start')
 @task_app_options
 @task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
-def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
+def fc_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwargs):
     click.echo('Starting Fractional Cover processing...')
 
     if dry_run:
@@ -200,12 +201,12 @@ def fc_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
         return 0
 
     results = []
-    tasks_backlog = itertools.islice(tasks, backlog)
-    for task in tasks_backlog:
+    task_queue = itertools.islice(tasks, queue_size)
+    for task in task_queue:
         _LOG.info('Running task: %s', task['tile_index'])
         results.append(executor.submit(do_fc_task, config=config, task=task))
 
-    click.echo('Backlog queue filled, waiting for first result...')
+    click.echo('Task queue filled, waiting for first result...')
 
     successful = failed = 0
     while results:

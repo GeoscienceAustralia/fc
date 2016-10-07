@@ -111,11 +111,11 @@ def do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg
     name = name or taskfile.stem
     app_cmd = ('datacube-fc -v {config_arg} '
                '--load-tasks "{taskfile}" '
-               '--backlog {backlog} '
+               '--queue-size {queue_size} '
                '--executor distributed DSCHEDULER'.format(
         config_arg=config_arg,
         taskfile=taskfile,
-        backlog=nodes * 16 * 2,
+        queue_size=nodes * 16 * 2,
     ))
 
     distr_cmd = '"%(distr)s" %(env_arg)s --ppn 16 %(app_cmd)s %(bokeh)s' % dict(
