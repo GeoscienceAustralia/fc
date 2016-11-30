@@ -189,7 +189,7 @@ APP_NAME = 'fc'
 @ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--year', callback=validate_year, help='Limit the process to a particular year')
-@click.option('--queue-size', '--backlog', type=click.IntRange(1, 100000), default=3200,
+@click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
               help='Number of tasks to queue at the start')
 @task_app_options
 @task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
