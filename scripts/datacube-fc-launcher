@@ -29,11 +29,11 @@ def list():
                   'or a taskfile created earlier')
 @click.option('--queue', '-q', default='normal',
               type=click.Choice(['normal', 'express']))
-@click.option('--project', '-P', default='v10')
+@click.option('--project', '-P', default='u46')
 @click.option('--nodes', '-n', required=True,
               help='Number of nodes to request',
-              type=click.IntRange(1, 100))
-@click.option('--walltime', '-t', default=10,
+              type=click.IntRange(1, 100), default=25)
+@click.option('--walltime', '-t', default=24,
               help='Number of hours to request',
               type=click.IntRange(1, 48))
 @click.option('--name', help='Job name to use')
