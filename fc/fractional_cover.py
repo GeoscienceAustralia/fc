@@ -12,11 +12,17 @@ from . import endmembers
 from .unmix import unmiximage
 
 
-def endmembers_version():
-    return '2014_07_23'
+ENDMEMBERS_VERSION = '2014_07_23'
+
+DEFAULT_MEASUREMENTS = [{
+    'name': 'PV',
+    'dtype': 'int8',
+    'nodata': -1,
+    'units': 'percent'
+}]
 
 
-def fractional_cover(nbar_tile, measurements):
+def fractional_cover(nbar_tile, measurements=None):
     """
     Given a tile of spectral observations compute the fractional components.
     The data should be a 2D array
@@ -47,6 +53,8 @@ def fractional_cover(nbar_tile, measurements):
     :rtype:
         xarray.Dataset
     """
+    if measurements is None:
+        measurements = DEFAULT_MEASUREMENTS
 
     # Ensure the bands are all there and in the right order
     nbar_tile = nbar_tile[['green', 'red', 'nir', 'swir1', 'swir2']]
@@ -65,6 +73,7 @@ def fractional_cover(nbar_tile, measurements):
         src_var = measurement.get('src_var', None) or measurement.get('name')
         i = band_names.index(src_var)
 
+        # Set nodata value into output array
         band_nodata = numpy.dtype(measurement['dtype']).type(measurement['nodata'])
         compute_error = (output_data[i, :, :] == -1)
         output_data[i, compute_error] = band_nodata
@@ -72,8 +81,7 @@ def fractional_cover(nbar_tile, measurements):
 
         return output_data[i, :, :]
 
-    flat_coords = xarray.DataArray(None).coords
-    dataset = Datacube.create_storage(flat_coords, nbar_tile.geobox, measurements, data_func)
+    dataset = Datacube.create_storage({}, nbar_tile.geobox, measurements, data_func)
 
     return dataset
 
