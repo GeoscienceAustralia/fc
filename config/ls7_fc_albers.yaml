@@ -6,7 +6,8 @@ description: Landsat 7 Fractional Cover 25 metre, 100km tile, Australian Albers 
 product_type: fractional_cover
 
 location: '/g/data/fk4/datacube/002/'
-file_path_template: 'LS7_ETM_FC/{tile_index[0]}_{tile_index[1]}/LS7_ETM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}.nc'
+file_path_template: 'LS7_ETM_FC/{tile_index[0]}_{tile_index[1]}/LS7_ETM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.nc'
+ncml_path_template: 'LS7_ETM_FC/LS7_ETM_FC_3577_{tile_index[0]}_{tile_index[1]}.ncml'
 
 global_attributes:
   title: Fractional Cover 25 v2
@@ -58,12 +59,10 @@ global_attributes:
   keywords: AU/GA,NASA/GSFC/SED/ESD/LANDSAT,REFLECTANCE,ETM+,TM,OLI,EARTH SCIENCE
   keywords_vocabulary: GCMD
   platform: LANDSAT-7
-  product_version: 2
   publisher_email: earth.observation@ga.gov.au
   publisher_name: Section Leader, Operations Section, NEMO, Geoscience Australia
   publisher_url: http://www.ga.gov.au
   license: CC BY Attribution 4.0 International License
-  coverage_content_type: physicalMeasurement
   cdm_data_type: Grid
   product_suite: Fractional Cover 25m
   acknowledgment: |
@@ -96,7 +95,7 @@ storage:
   chunking:
       x: 200
       y: 200
-      time: 1
+      time: 5
   dimension_order: ['time', 'y', 'x']
 
 measurements:
@@ -111,6 +110,7 @@ measurements:
           long_name: "Bare ground fraction percentage"
           comment: "Fraction of bare ground including rock, bare and disturbed soil, within the Landsat pixel as percentages"
           alias: "bare"
+          coverage_content_type: modelResult
       aliases: ["bare"]
     - name: PV
       src_var: PV
@@ -123,6 +123,7 @@ measurements:
           long_name: "Green cover fraction percentage"
           comment: "Fraction of green cover including green groundcover and green leaf material over all strata, within the Landsat pixel, as percentages"
           alias: "green"
+          coverage_content_type: modelResult
       aliases: ["green_veg"]
     - name: NPV
       src_var: NPV
@@ -135,6 +136,7 @@ measurements:
           long_name: "Non-green cover fraction percentage"
           comment: "Fraction of non green cover including litter, dead leaf and branches over all strata, within the Landsat pixel, as percentages"
           alias: "dead"
+          coverage_content_type: modelResult
       aliases: ["dead_veg"]
     - name: UE
       src_var: UE
@@ -147,4 +149,5 @@ measurements:
           long_name: "Unmixing error"
           comment: "Eclidean Norm of the Residual Vector"
           alias: "err"
+          coverage_content_type: qualityInformation
       aliases: ["err"]
