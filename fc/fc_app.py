@@ -1,24 +1,22 @@
 from __future__ import absolute_import, print_function
 
 import errno
-import itertools
 import logging
 import os
 from copy import deepcopy
-from datetime import datetime
+from functools import partial
 
 import click
 from pandas import to_datetime
 from pathlib import Path
 
 from datacube.api.grid_workflow import GridWorkflow
-from datacube.compat import integer_types
 from datacube.model import DatasetType, GeoPolygon, Range
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
-from datacube.ui.task_app import task_app, task_app_options, check_existing_files
-from datacube.utils import intersect_points, union_points, unsqueeze_dataset
+from datacube.ui import task_app
+from datacube.utils import unsqueeze_dataset
 from fc.fractional_cover import fractional_cover
 
 
@@ -35,9 +33,11 @@ def make_fc_config(index, config, dry_run=False, **query):
     output_type_definition['name'] = config['output_type']
     output_type_definition['managed'] = True
     output_type_definition['description'] = config['description']
-    output_type_definition['storage'] = config['storage']
     output_type_definition['metadata']['format'] = {'name': 'NetCDF'}
     output_type_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
+
+    output_type_definition['storage'] = {k: v for (k, v) in config['storage'].items()
+                                         if k in ('crs', 'tile_size', 'resolution', 'origin')}
 
     var_def_keys = {'name', 'dtype', 'nodata', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
 
@@ -75,25 +75,18 @@ def get_filename(config, tile_index, sources):
     file_path_template = str(Path(config['location'], config['file_path_template']))
     return file_path_template.format(tile_index=tile_index,
                                      start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
-                                     end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'))
+                                     end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'),
+                                     version=config['task_timestamp'])
 
 
-def make_fc_tasks(index, config, year=None, **kwargs):
+def make_fc_tasks(index, config, time=None, **kwargs):
     input_type = config['nbar_dataset_type']
     output_type = config['fc_dataset_type']
 
     workflow = GridWorkflow(index, output_type.grid_spec)
 
-    # TODO: Filter query to valid options
-    query = {}
-    if year is not None:
-        if isinstance(year, integer_types):
-            query['time'] = Range(datetime(year=year, month=1, day=1), datetime(year=year+1, month=1, day=1))
-        elif isinstance(year, tuple):
-            query['time'] = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1]+1, month=1, day=1))
-
-    tiles_in = workflow.list_tiles(product=input_type.name, **query)
-    tiles_out = workflow.list_tiles(product=output_type.name, **query)
+    tiles_in = workflow.list_tiles(product=input_type.name, time=time)
+    tiles_out = workflow.list_tiles(product=output_type.name, time=time)
 
     def make_task(tile, **task_kwargs):
         task = dict(nbar=workflow.update_tile_lineage(tile))
@@ -145,16 +138,13 @@ def do_fc_task(config, task):
 
     def _make_dataset(labels, sources):
         assert len(sources)
-        geobox = nbar.geobox
-        source_data = union_points(*[dataset.extent.to_crs(geobox.crs).points for dataset in sources])
-        valid_data = intersect_points(geobox.extent.points, source_data)
         dataset = make_dataset(product=output_type,
                                sources=sources,
-                               extent=geobox.extent,
+                               extent=nbar.geobox.extent,
                                center_time=labels['time'],
                                uri=file_path.absolute().as_uri(),
                                app_info=get_app_metadata(config),
-                               valid_data=GeoPolygon(valid_data, geobox.crs))
+                               valid_data=GeoPolygon.from_sources_extents(sources, nbar.geobox))
         return dataset
 
     datasets = xr_apply(nbar_tile.sources, _make_dataset, dtype='O')
@@ -169,71 +159,34 @@ def do_fc_task(config, task):
     return datasets
 
 
-def validate_year(ctx, param, value):
-    try:
-        if value is None:
-            return None
-        years = map(int, value.split('-', 2))
-        if len(years) == 1:
-            return years[0]
-        return tuple(years)
-    except ValueError:
-        raise click.BadParameter('year must be specified as a single year (eg 1996) '
-                                 'or as an inclusive range (eg 1996-2001)')
+def process_result(index, result):
+    for dataset in result.values:
+        index.datasets.add(dataset, skip_sources=True)
+        _LOG.info('Dataset added')
 
 
-APP_NAME = 'fc'
+APP_NAME = 'datacube-fc'
 
 
 @click.command(name=APP_NAME)
 @ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--year', callback=validate_year, help='Limit the process to a particular year')
+@click.option('--year', 'time', callback=task_app.validate_year, help='Limit the process to a particular year')
 @click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
               help='Number of tasks to queue at the start')
-@task_app_options
-@task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
+@task_app.task_app_options
+@task_app.task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
 def fc_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwargs):
     click.echo('Starting Fractional Cover processing...')
 
     if dry_run:
-        check_existing_files((task['filename'] for task in tasks))
+        task_app.check_existing_files((task['filename'] for task in tasks))
         return 0
 
-    results = []
-    task_queue = itertools.islice(tasks, queue_size)
-    for task in task_queue:
-        _LOG.info('Running task: %s', task['tile_index'])
-        results.append(executor.submit(do_fc_task, config=config, task=task))
+    task_func = partial(do_fc_task, config)
+    process_func = partial(process_result, index)
 
-    click.echo('Task queue filled, waiting for first result...')
-
-    successful = failed = 0
-    while results:
-        result, results = executor.next_completed(results, None)
-
-        # submit a new task to replace the one we just finished
-        task = next(tasks, None)
-        if task:
-            _LOG.info('Running task: %s', task['tile_index'])
-            results.append(executor.submit(do_fc_task, config=config, task=task))
-
-        # Process the result
-        try:
-            datasets = executor.result(result)
-            for dataset in datasets.values:
-                index.datasets.add(dataset, skip_sources=True)
-                _LOG.info('Dataset added')
-            successful += 1
-        except Exception as err:  # pylint: disable=broad-except
-            _LOG.exception('Task failed: %s', err)
-            failed += 1
-            continue
-        finally:
-            # Release the task to free memory so there is no leak in executor/scheduler/worker process
-            executor.release(result)
-
-    click.echo('%d successful, %d failed' % (successful, failed))
+    task_app.run_tasks(tasks, executor, task_func, process_func, queue_size)
 
 
 if __name__ == "__main__":
