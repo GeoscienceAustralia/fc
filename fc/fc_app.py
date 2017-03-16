@@ -5,6 +5,7 @@ import logging
 import os
 from copy import deepcopy
 from functools import partial
+import time
 
 import click
 from pandas import to_datetime
@@ -67,6 +68,9 @@ def make_fc_config(index, config, dry_run=False, **query):
 
     config['nbar_dataset_type'] = source_type
     config['fc_dataset_type'] = output_type
+
+    if 'task_timestamp' not in config:
+        config['task_timestamp'] = int(time.time())
 
     return config
 
