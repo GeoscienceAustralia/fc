@@ -6,8 +6,7 @@ from __future__ import absolute_import, print_function
 
 import pytest
 import xarray as xr
-import numpy as np
-import datacube.model
+import datacube.utils.geometry
 
 from fc.fractional_cover import fractional_cover
 
@@ -38,5 +37,5 @@ def test_fractional_cover(sr_filepath, fc_filepath):
 
 def open_dataset(file_path):
     ds = xr.open_dataset(file_path, mask_and_scale=False, drop_variables='crs')
-    ds.attrs['crs'] = datacube.model.CRS('EPSG:32754')
+    ds.attrs['crs'] = datacube.utils.geometry.CRS('EPSG:32754')
     return ds
