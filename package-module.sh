@@ -37,7 +37,7 @@ module load ${agdc_module}
 
 export module_name=agdc-fc
 export version=`git describe --tags --always`
-python_version=`python -c 'import sys; print("%s.%s"%sys.version_info[:2])'`
+python_version=`python -c 'import sys; from __future__ import print_function; print("%s.%s"%sys.version_info[:2])'`
 
 export module_dest=${module_dir}/${module_name}/${version}
 export python_dest=${module_dest}/lib/python${python_version}/site-packages
