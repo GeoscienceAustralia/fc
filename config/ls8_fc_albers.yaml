@@ -9,6 +9,26 @@ location: '/g/data/fk4/datacube/002/'
 file_path_template: 'LS8_OLI_FC/{tile_index[0]}_{tile_index[1]}/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.nc'
 ncml_path_template: 'LS8_OLI_FC/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}.ncml'
 
+sensor_regression_coefficients:
+  blue: |
+    - 0.00041
+    - 0.97470
+  green: |
+    - 0.00289
+    - 0.99779
+  red: |
+    - 0.00274
+    - 1.00446
+  nir: |
+    - 0.00004
+    - 0.98906
+  swir1: |
+    - 0.00256
+    - 0.99467
+  swir2: |
+    - -0.00327
+    - 1.02551
+
 global_attributes:
   title: Fractional Cover 25 v2
   summary: |
@@ -82,25 +102,6 @@ global_attributes:
     - Muir, J., Schmidt, M., Tindall, D., Trevithick, R., Scarth, P., Stewart, J., 2011. Guidelines for Field measurement of fractional ground cover: a technical handbook supporting the Australian collaborative land use and management program. Tech. rep., Queensland Department of Environment and Resource Management for the Australian Bureau of Agricultural and Resource Economics and Sciences, Canberra.
     - Scarth, P., Roder, A. and Schmidt, M., 2010. Tracking grazing pressure and climate interaction -  the role of Landsat fractional cover in the time series analysis, Proceedings of the 15th Australasian Remote Sensing & Photogrammetry Conference, viewed 4 January 2011, scribd.com/doc/37455672/15arspc-Submission-140.
     - Schmidt, M., Denham, R. and Scarth, P., 2010. 'Fractional ground cover monitoring of pastures and agricultural areas in Queensland', Proceedings of the 15th Australasian Remote Sensing & Photogrammetry Conference, viewed 4 January 2011, www.scribd.com/doc/37455826/15arspc-Submission-119.
-  sensor_regression_coefficients:
-    blue: |
-      - 0.00041
-      - 0.97470
-    green: |
-      - 0.00289
-      - 0.99779
-    red: |
-      - 0.00274
-      - 1.00446
-    nir: |
-      - 0.00004
-      - 0.98906
-    swir1: |
-      - 0.00256
-      - 0.99467
-    swir2: |
-      - -0.00327
-      - 1.02551
 
 storage:
   driver: NetCDF CF

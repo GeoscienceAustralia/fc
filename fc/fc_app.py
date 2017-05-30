@@ -138,7 +138,7 @@ def do_fc_task(config, task):
     nbar = GridWorkflow.load(nbar_tile, measurements)
 
     output_measurements = config['fc_dataset_type'].measurements.values()
-    fc_out = make_fc_tile(nbar, output_measurements, global_attributes['sensor_regression_coefficients'])
+    fc_out = make_fc_tile(nbar, output_measurements, config.get('sensor_regression_coefficients'))
 
     def _make_dataset(labels, sources):
         assert len(sources)
