@@ -12,7 +12,7 @@ from pandas import to_datetime
 from pathlib import Path
 
 from datacube.api.grid_workflow import GridWorkflow
-from datacube.model import DatasetType, GeoPolygon, Range
+from datacube.model import DatasetType, GeoPolygon
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
@@ -24,7 +24,7 @@ from fc.fractional_cover import fractional_cover
 _LOG = logging.getLogger('agdc-fc')
 
 
-def make_fc_config(index, config, dry_run=False, **query):
+def make_fc_config(index, config, dry_run=False, process_all=False, **query):
     source_type = index.products.get_by_name(config['source_type'])
     if not source_type:
         _LOG.error("Source DatasetType %s does not exist", config['source_type'])
@@ -72,6 +72,8 @@ def make_fc_config(index, config, dry_run=False, **query):
     if 'task_timestamp' not in config:
         config['task_timestamp'] = int(time.time())
 
+    config['process_all'] = process_all
+
     return config
 
 
@@ -97,8 +99,13 @@ def make_fc_tasks(index, config, time=None, **kwargs):
         task.update(task_kwargs)
         return task
 
+    process_all = config.get('process_all', False)
+
+    def should_process(key):
+        return process_all or key not in tiles_out
+
     tasks = (make_task(tile, tile_index=key, filename=get_filename(config, tile_index=key, sources=tile.sources))
-             for key, tile in tiles_in.items() if key not in tiles_out)
+             for key, tile in tiles_in.items() if should_process(key))
     return tasks
 
 
@@ -169,6 +176,10 @@ def process_result(index, result):
         _LOG.info('Dataset added')
 
 
+def noop_process_result(result):
+    _LOG.info('Dataset received but not added to the DB as requested')
+
+
 APP_NAME = 'datacube-fc'
 
 
@@ -178,9 +189,12 @@ APP_NAME = 'datacube-fc'
 @click.option('--year', 'time', callback=task_app.validate_year, help='Limit the process to a particular year')
 @click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
               help='Number of tasks to queue at the start')
+@click.option('--skip-db-update', is_flag=True, default=False, help="Don't update database")
+@click.option('--process-all', is_flag=True, default=False,
+              help="Don't skip cells that are already present in the output product index")
 @task_app.task_app_options
 @task_app.task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
-def fc_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwargs):
+def fc_app(index, config, tasks, executor, dry_run, queue_size, skip_db_update, *args, **kwargs):
     click.echo('Starting Fractional Cover processing...')
 
     if dry_run:
@@ -188,7 +202,11 @@ def fc_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwargs)
         return 0
 
     task_func = partial(do_fc_task, config)
-    process_func = partial(process_result, index)
+
+    if skip_db_update:
+        process_func = noop_process_result
+    else:
+        process_func = partial(process_result, index)
 
     task_app.run_tasks(tasks, executor, task_func, process_func, queue_size)
 
