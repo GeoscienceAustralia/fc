@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 
+# generated C file
+/fc/unmix/unmiximagemodule.c
+
 # C extensions
 *.so
 
