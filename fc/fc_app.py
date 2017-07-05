@@ -123,9 +123,9 @@ def get_app_metadata(config):
     return doc
 
 
-def make_fc_tile(nbar, measurements):
+def make_fc_tile(nbar, measurements, regression_coefficients):
     input_tile = nbar.squeeze('time').drop('time')
-    data = fractional_cover(input_tile, measurements)
+    data = fractional_cover(input_tile, measurements, regression_coefficients)
     output_tile = unsqueeze_dataset(data, 'time', nbar.time.values[0])
     return output_tile
 
@@ -145,7 +145,7 @@ def do_fc_task(config, task):
     nbar = GridWorkflow.load(nbar_tile, measurements)
 
     output_measurements = config['fc_dataset_type'].measurements.values()
-    fc_out = make_fc_tile(nbar, output_measurements)
+    fc_out = make_fc_tile(nbar, output_measurements, config.get('sensor_regression_coefficients'))
 
     def _make_dataset(labels, sources):
         assert len(sources)

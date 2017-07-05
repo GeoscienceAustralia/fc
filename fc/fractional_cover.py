@@ -22,7 +22,7 @@ DEFAULT_MEASUREMENTS = [{
 }]
 
 
-def fractional_cover(nbar_tile, measurements=None):
+def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None):
     """
     Given a tile of spectral observations compute the fractional components.
     The data should be a 2D array
@@ -42,6 +42,10 @@ def fractional_cover(nbar_tile, measurements=None):
             * dtype - dtype to use, eg `'int8'`
             * nodata - value to fill in for no data, eg `-1`
             * units' - eg `'percent'`
+
+    :param dict regression_coefficients:
+        A dictionary with six pairs of coefficients to apply to the green, red, nir, swir1 and swir2 values
+        (blue is not used)
 
     :return:
         An xarray.Dataset containing:
@@ -66,7 +70,7 @@ def fractional_cover(nbar_tile, measurements=None):
     nbar = nbar_tile.to_array(dim='band')
     nbar.data[:, ~is_valid_array.data] = no_data
 
-    output_data = compute_fractions(nbar.data)
+    output_data = compute_fractions(nbar.data, regression_coefficients)
 
     def data_func(measurement):
         band_names = ['PV', 'NPV', 'BS', 'UE']
@@ -93,7 +97,7 @@ def make_temp_array(nbar):
     return numpy.empty(temp_shape, dtype=numpy.float)
 
 
-def compute_fractions(nbar):
+def compute_fractions(nbar, regression_coefficients):
     """
     Compute the fractional cover of the given imagery tile
 
@@ -112,7 +116,8 @@ def compute_fractions(nbar):
     for geo_index in iter_slices(nbar.shape[1:], chunk_size):
         index = band_index + geo_index
         arr = nbar[index]
-        temp_arr[index] = unmix(arr[0], arr[1], arr[2], arr[3], arr[4], sum_to_one_weight, endmembers_array)
+        temp_arr[index] = unmix(arr[0], arr[1], arr[2], arr[3], arr[4], sum_to_one_weight, endmembers_array,
+                                regression_coefficients)
 
     green, dead1, dead2, bare, err = temp_arr
 
@@ -141,7 +146,22 @@ def compute_fractions(nbar):
     return output_data
 
 
-def unmix(green, red, nir, swir1, swir2, sum_to_one_weight, endmembers_array):
+def apply_coefficients_for_band(numpyarray, band, regression_coefficients):
+    """
+    Apply regression coefficients in the form: ETM = c0 + OLI*c1
+    As per table 2 in http://www.mdpi.com/2072-4292/6/9/7952/htm
+    :param numpyarray: array of measurements to apply coefficients to
+    :param band: name of the coefficient pair to apply
+    :return: updated array
+    """
+    band_coefficients = regression_coefficients[band]
+    coefficient0 = band_coefficients[0]
+    coefficient1 = band_coefficients[1]
+    numpyarray = numexpr.evaluate('coefficient0 + (coefficient1 * numpyarray)')
+    return numpyarray
+
+
+def unmix(green, red, nir, swir1, swir2, sum_to_one_weight, endmembers_array, regression_coefficients):
     """
     NNLS Unmixing v1.0
     Scarth 20090810 14:06:35 CEST
@@ -155,10 +175,17 @@ def unmix(green, red, nir, swir1, swir2, sum_to_one_weight, endmembers_array):
     :param numpy.Array red:
     :param numpy.Array nir:
     :param numpy.Array swir1:
-    :param numpy.Array swir1:
+    :param numpy.Array swir2:
     :param float sum_to_one_weight: Scale factor
     :param numpy.Array endmembers_array: Endmembers array
     """
+
+    if regression_coefficients is not None:
+        green = apply_coefficients_for_band(green, 'green', regression_coefficients)
+        red = apply_coefficients_for_band(red, 'red', regression_coefficients)
+        nir = apply_coefficients_for_band(nir, 'nir', regression_coefficients)
+        swir1 = apply_coefficients_for_band(swir1, 'swir1', regression_coefficients)
+        swir2 = apply_coefficients_for_band(swir2, 'swir2', regression_coefficients)
 
     band2 = numexpr.evaluate("(1.0 + green) * 0.0001")
     band3 = numexpr.evaluate("(1.0 + red) * 0.0001")
