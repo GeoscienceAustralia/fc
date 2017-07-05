@@ -36,7 +36,7 @@ def sum_weight():
 
 
 def endmember_version():
-    return '2017_06_01'
+    return '2017_06_09'
 
 
 def get_endmembers(sum_to_one_weight):
