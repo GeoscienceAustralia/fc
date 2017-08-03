@@ -141,7 +141,7 @@ def do_fc_task(config, task):
     fc_out = make_fc_tile(nbar, output_measurements, config.get('sensor_regression_coefficients'))
 
     def _make_dataset(labels, sources):
-        assert len(sources)
+        assert sources
         dataset = make_dataset(product=output_type,
                                sources=sources,
                                extent=nbar.geobox.extent,

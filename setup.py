@@ -38,6 +38,7 @@ setup(
     packages=['fc', 'fc.unmix'],
     install_requires=[
         'numpy',
+        'numexpr',
         'datacube',
         'click>=5.0',
     ],
