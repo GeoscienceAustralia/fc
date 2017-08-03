@@ -97,6 +97,7 @@ def make_temp_array(nbar):
     return numpy.empty(temp_shape, dtype=numpy.float)
 
 
+#: pylint: disable=too-many-locals
 def compute_fractions(nbar, regression_coefficients):
     """
     Compute the fractional cover of the given imagery tile
@@ -161,6 +162,7 @@ def apply_coefficients_for_band(numpyarray, band, regression_coefficients):
     return numpyarray
 
 
+#: pylint: disable=too-many-statements, too-many-locals
 def unmix(green, red, nir, swir1, swir2, sum_to_one_weight, endmembers_array, regression_coefficients):
     """
     NNLS Unmixing v1.0

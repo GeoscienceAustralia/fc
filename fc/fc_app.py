@@ -5,7 +5,7 @@ import logging
 import os
 from copy import deepcopy
 from functools import partial
-import time
+from time import time as time_now
 
 import click
 from pandas import to_datetime
@@ -64,13 +64,13 @@ def make_fc_config(index, config, dry_run=False, **query):
         output_type = index.products.add(output_type)
 
     if not os.access(config['location'], os.W_OK):
-        _LOG.warn('Current user appears not have write access output location: %s', config['location'])
+        _LOG.warning('Current user appears not have write access output location: %s', config['location'])
 
     config['nbar_dataset_type'] = source_type
     config['fc_dataset_type'] = output_type
 
     if 'task_timestamp' not in config:
-        config['task_timestamp'] = int(time.time())
+        config['task_timestamp'] = int(time_now())
 
     return config
 
