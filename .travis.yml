@@ -1,0 +1,36 @@
+---
+dist: trusty
+language: python
+python:
+    - '3.6'
+sudo: true
+addons:
+    apt:
+        packages:
+            - gdal-bin
+            - gfortran
+            - libatlas-base-dev
+            - libatlas-dev
+            - libgdal1-dev
+            - liblapack-dev
+            - libproj-dev
+            - libxml2-dev
+            - libxslt-dev
+            - pandoc
+            - shellcheck
+
+cache:
+    apt: true
+    directories:
+        - $HOME/.cache/pip
+
+install:
+    - export CPLUS_INCLUDE_PATH="/usr/include/gdal"
+    - export C_INCLUDE_PATH="/usr/include/gdal"
+    - travis_retry pip install pylint yamllint pytest-cov pep8 GDAL==1.10.0
+    # Dask.array seems to need this?
+    - travis_retry pip install cloudpickle
+    - travis_retry pip install -e .
+
+script:
+    - ./check-code.sh

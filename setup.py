@@ -8,6 +8,7 @@ import os
 
 from numpy.distutils.core import Extension, setup, Command
 
+import versioneer
 
 class PyTest(Command):
     user_options = []
@@ -20,38 +21,41 @@ class PyTest(Command):
         errno = subprocess.call([sys.executable, 'runtests.py'])
         raise SystemExit(errno)
 
+my_cmdclass = versioneer.get_cmdclass()
+my_cmdclass['test'] = PyTest
 
-setup(name='fc',
-      version=os.environ.get('version', 0.0),
-      description='Geoscience Australia - Fractional Cover for AGDC',
-      long_description=open('README.rst', 'r').read(),
-      license='Apache License 2.0',
-      url='https://github.com/GeoscienceAustralia/fc',
-      author='AGDC Collaboration',
-      maintainer='AGDC Collaboration',
-      maintainer_email='',
-      packages=['fc', 'fc.unmix'],
-      install_requires=[
-          'numpy',
-          'datacube',
-          'click'
-      ],
-      entry_points={
-          'console_scripts': [
-              'datacube-fc = fc.fc_app:fc_app',
-          ]
-      },
-      cmdclass={
-          'test': PyTest,
-      },
-      ext_modules=[
-          Extension(name='fc.unmix.unmiximage',
-                    sources=[
-                        'fc/unmix/unmiximage.f90',
-                        'fc/unmix/constants_NSWC.f90',
-                        'fc/unmix/nnls.f90',
-                        'fc/unmix/unmiximage.pyf',
-                    ],
-                    )]
-      )
+setup(
+    name='fc',
+    version=versioneer.get_version(),
+    cmdclass=my_cmdclass,
+    description='Geoscience Australia - Fractional Cover for Digital Earth Australia',
+    long_description=open('README.rst', 'r').read(),
+    license='Apache License 2.0',
+    url='https://github.com/GeoscienceAustralia/fc',
+    author='Geoscience Australia',
+    maintainer='Geoscience Australia',
+    maintainer_email='earth.observation@ga.gov.au',
+    packages=['fc', 'fc.unmix'],
+    install_requires=[
+        'numpy',
+        'datacube',
+        'click>=5.0',
+    ],
+    entry_points={
+        'console_scripts': [
+            'datacube-fc = fc.fc_app:fc_app',
+        ]
+    },
+    ext_modules=[
+        Extension(
+            name='fc.unmix.unmiximage',
+            sources=[
+                'fc/unmix/unmiximage.f90',
+                'fc/unmix/constants_NSWC.f90',
+                'fc/unmix/nnls.f90',
+                'fc/unmix/unmiximage.pyf',
+            ],
+        )
+    ],
+)
 
