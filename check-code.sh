@@ -4,7 +4,7 @@
 set -eu
 set -x
 
-pylint -j 2 --reports no fc
+pylint -j 2 --ignore-patterns='.+\.so' --reports no fc
 
 # Run tests, taking coverage.
 # Users can specify extra folders as arguments.
