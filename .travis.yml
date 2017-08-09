@@ -44,23 +44,23 @@ before_deploy:
 
 deploy:
     - provider: s3
-        access_key_id: "AKIAJMZN4F5L5KXPQKVQ"
-        secret_access_key:
-            secure: kI1RNrgnAJil2/d1ut5JOypWrZhgSt6MHNpRMK5zpEoB+RaKAshq+b7Npw5TFQ9crmJ9Z5qwMGoaA9/b8Y7x4bM38oaaDkh3QEQw02YV9DjLOtfegBgfxjXMcwP9BdKjGiqZaq0akK4TyCdZq4Vmu+vDNDP4WJIqoyH4az7TpqxflqWgGUote1Rxlng12bvXGgk0t5GvGFUkQOLgD6CUVqj6cV/NAIOCtvxONDYorVCcL/ZhPyzH1JSKLLLaObupIKr4yOAJ7NO/Zysf3dU0GKPEAmiCqWp5gPGVQGRGIQORgYHIf2eZDSd4sgmMZrPM30KpIN8fTF5VYq1w/4S2ZNMSElVbwm4qOhnF8LNip/GKFtteV5hsq5cLB4usHZaxOuklISc5Ck6vY2l2waLQyRcNIeqB8wXwyp1xNGSkw+jfT3gPQNXtnNO2aoT7CJU5qD/9EZGs6UuVc7nP1GJkYYGn9JLSPhybCTWA3Aj4nhX/3EKoNTPU2Peu/2LlXJ+Sn74sQqOCdKQ0fqRRmR+oVxRmKtCGLaqIjs8NZih6FRM0S+By7EmAEF7zADH1/I6+nwjRA8djOBc434lVdURJSTFwAsOT20ZokQNxdDJkcusJjPlYLnawWxUl90XADzwJj96rRc5Nx+Di4IU5dhGLuDUSxsOHrrY5z18VCwNWMOM=
-        bucket: "datacube-core-deployment"
-        region: "ap-southeast-2"
-        local_dir: dist
-        upload_dir: $DEPLOY_PATH
-        skip_cleanup: true
-        on:
-            all_branches: true  # Let the condition below decide if the branch is to be deployed
-            condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # develop branch or tags
-            repo: GeoscienceAustralia/fc
-            python: "3.6"
+      access_key_id: "AKIAJMZN4F5L5KXPQKVQ"
+      secret_access_key:
+          secure: kI1RNrgnAJil2/d1ut5JOypWrZhgSt6MHNpRMK5zpEoB+RaKAshq+b7Npw5TFQ9crmJ9Z5qwMGoaA9/b8Y7x4bM38oaaDkh3QEQw02YV9DjLOtfegBgfxjXMcwP9BdKjGiqZaq0akK4TyCdZq4Vmu+vDNDP4WJIqoyH4az7TpqxflqWgGUote1Rxlng12bvXGgk0t5GvGFUkQOLgD6CUVqj6cV/NAIOCtvxONDYorVCcL/ZhPyzH1JSKLLLaObupIKr4yOAJ7NO/Zysf3dU0GKPEAmiCqWp5gPGVQGRGIQORgYHIf2eZDSd4sgmMZrPM30KpIN8fTF5VYq1w/4S2ZNMSElVbwm4qOhnF8LNip/GKFtteV5hsq5cLB4usHZaxOuklISc5Ck6vY2l2waLQyRcNIeqB8wXwyp1xNGSkw+jfT3gPQNXtnNO2aoT7CJU5qD/9EZGs6UuVc7nP1GJkYYGn9JLSPhybCTWA3Aj4nhX/3EKoNTPU2Peu/2LlXJ+Sn74sQqOCdKQ0fqRRmR+oVxRmKtCGLaqIjs8NZih6FRM0S+By7EmAEF7zADH1/I6+nwjRA8djOBc434lVdURJSTFwAsOT20ZokQNxdDJkcusJjPlYLnawWxUl90XADzwJj96rRc5Nx+Di4IU5dhGLuDUSxsOHrrY5z18VCwNWMOM=
+      bucket: "datacube-core-deployment"
+      region: "ap-southeast-2"
+      local_dir: dist
+      upload_dir: $DEPLOY_PATH
+      skip_cleanup: true
+      on:
+          all_branches: true  # Let the condition below decide if the branch is to be deployed
+          condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # develop branch or tags
+          repo: GeoscienceAustralia/fc
+          python: "3.6"
 
 notifications:
     slack:
-    on_success: change
-    on_failure: always
-    on_pull_requests: true
-        secure: kju0+7y8Qoo6Wn2QdaVo67fKizx1OvcZVgGulx88UXBPe89zm6bRrbW9lATJnl0Epa4WdoCSAqgfyEM3oGrJDH/cIDx4EnmRgZ+Yt4aPF7orllFCxw+yOFbH/axVr1fOr/7fxilkUwAXgwFNz/maEbRDj6wSH6xkaYEVMw5Waou36dZvwZYVBByS4eFaMLSk5IxpcHzgH+8bVmZO14dzBTGKbm17b2eC8bzedp9MyQNy3HR4odSDTp8m0XYuH3elACUBZusmfDlCAmyG5b2CNTByS2L6l99oaXAWYWjU6JmucVBHJQd3qwTbHGmHMCPgyVWyGFqZgt50kePQis6HTeVDPrCCfHgBp+6TFki1kmsW6V0WMIHA1oQAbZdEayjDzDBXYWTvP64D4GxdH8EKRkHrlANQJmeS4+z3GWY/Thr1QqFFzFKyASuujPiXTVVXV+GasaYRULlB+QikAXPIwvshVuI3fipnz2zdUDeWRqFXyldhxvo7/IwcRdDwSVf5uquOWGB/mOkZtYYkO0tadLPOTEQNKAkmPPGLDcirUhetIZpiILNuuW4E5EyNPeYHUV9KE+7Zkfk1clDfZ2WfchCPE2db+AkXpFqFR8EB69MkqpV85ac54rJHopfpZpNEIzmuac+g4rACYJ44W1lxqplE9GTY7H+nAsuAPdy+2TM=
+        on_success: change
+        on_failure: always
+        rooms:
+            secure: kju0+7y8Qoo6Wn2QdaVo67fKizx1OvcZVgGulx88UXBPe89zm6bRrbW9lATJnl0Epa4WdoCSAqgfyEM3oGrJDH/cIDx4EnmRgZ+Yt4aPF7orllFCxw+yOFbH/axVr1fOr/7fxilkUwAXgwFNz/maEbRDj6wSH6xkaYEVMw5Waou36dZvwZYVBByS4eFaMLSk5IxpcHzgH+8bVmZO14dzBTGKbm17b2eC8bzedp9MyQNy3HR4odSDTp8m0XYuH3elACUBZusmfDlCAmyG5b2CNTByS2L6l99oaXAWYWjU6JmucVBHJQd3qwTbHGmHMCPgyVWyGFqZgt50kePQis6HTeVDPrCCfHgBp+6TFki1kmsW6V0WMIHA1oQAbZdEayjDzDBXYWTvP64D4GxdH8EKRkHrlANQJmeS4+z3GWY/Thr1QqFFzFKyASuujPiXTVVXV+GasaYRULlB+QikAXPIwvshVuI3fipnz2zdUDeWRqFXyldhxvo7/IwcRdDwSVf5uquOWGB/mOkZtYYkO0tadLPOTEQNKAkmPPGLDcirUhetIZpiILNuuW4E5EyNPeYHUV9KE+7Zkfk1clDfZ2WfchCPE2db+AkXpFqFR8EB69MkqpV85ac54rJHopfpZpNEIzmuac+g4rACYJ44W1lxqplE9GTY7H+nAsuAPdy+2TM=
