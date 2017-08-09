@@ -4,7 +4,7 @@
 set -eu
 set -x
 
-pep8 tests
+pep8 tests --max-line-length 120
 
 pylint -j 2 --ignore-patterns='.+\.so' --reports no fc
 
