@@ -1,6 +1,8 @@
 Fractional Cover (fc)
 =====================
 
+|Build Status| |Coverage Status|
+
 Fractional Cover measures the photosynthetic, non-photosynthetic and
 bare earth components of a Landsat image.
 
@@ -9,12 +11,24 @@ Installation
 
 To install the module on raijin:
 
-Update Collection Management Interface system
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Update the file metadata config
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Go to http://52.62.11.43/validate/6
+We need to pull the latest file metadata (netCDF global attributes) that are to be written to the output files from the CMI system.
 
-Ensure that the global attributes from CMI match the global attributes
+If you are on raijin or VDI::
+
+    module use /g/data/v10/public/modules/modulefiles
+    module use /g/data/v10/private/modules/modulefiles
+    module load dea-prod/********  # (Use appropriate version)
+    
+Otherwise install the ``digitalearthau`` package from https://github.com/GeoscienceAustralia/digitalearthau
+      
+Then harvest the metadata::
+
+    dea-harvest 119
+
+Ensure that the global attributes from the harvest match the global attributes
 in the config files, and update appropriately.
 
 Download from GitHub
@@ -59,7 +73,7 @@ You will also need to setup datacube to work from VDI and rajin.
     $ ssh raijin "cat .pgpass" >> ~/.pgpass
     $ chmod 0600 ~/.pgpass
 
-See http://agdc-v2.readthedocs.io/en/stable/user/nci\_usage.html for
+See http://geoscienceaustralia.github.io/digitalearthau/connect/nci_basics.html for
 full details.
 
 Running
@@ -199,3 +213,10 @@ The config file lists the output `location` and file_path_template``, as shown i
     file_path_template: 'LS5_TM_FC/{tile_index[0]}_{tile_index[1]}/LS5_TM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}.nc'
 
 So here the output files are saved to ``/g/data/fk4/datacube/002/LS5_TM_FC/<tile_index>/*.nc``
+
+
+.. |Build Status| image:: https://travis-ci.org/GeoscienceAustralia/fc.svg?branch=master
+    :target: https://travis-ci.org/GeoscienceAustralia/fc
+    
+.. |Coverage Status| image:: https://coveralls.io/repos/github/GeoscienceAustralia/fc/badge.svg?branch=master
+    :target: https://coveralls.io/github/GeoscienceAustralia/fc?branch=master
