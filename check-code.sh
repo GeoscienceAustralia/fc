@@ -4,6 +4,8 @@
 set -eu
 set -x
 
+pep8 tests
+
 pylint -j 2 --ignore-patterns='.+\.so' --reports no fc
 
 # Run tests, taking coverage.

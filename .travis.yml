@@ -27,10 +27,13 @@ cache:
 install:
     - export CPLUS_INCLUDE_PATH="/usr/include/gdal"
     - export C_INCLUDE_PATH="/usr/include/gdal"
-    - travis_retry pip install pylint yamllint pytest-cov pep8 GDAL==1.10.0
+    - travis_retry pip install pylint yamllint pytest-cov pep8 GDAL==1.10.0 coveralls
     # Dask.array seems to need this?
     - travis_retry pip install cloudpickle
     - travis_retry pip install -e .
 
 script:
     - ./check-code.sh
+
+after_success:
+  - coveralls
