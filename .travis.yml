@@ -36,8 +36,30 @@ script:
     - ./check-code.sh
 
 after_success:
-  - coveralls
+    - coveralls
+
+before_deploy:
+    - python setup.py sdist --dist-dir dist/$TRAVIS_PYTHON_VERSION
+    - DEPLOY_PATH=$TRAVIS_REPO_SLUG/${TRAVIS_TAG:-$TRAVIS_BRANCH}  # eg GeoscienceAustralia/fc/master
+
+deploy:
+    - provider: s3
+        access_key_id: "AKIAJMZN4F5L5KXPQKVQ"
+        secret_access_key:
+        bucket: "datacube-core-deployment"
+        region: "ap-southeast-2"
+        local_dir: dist
+        upload_dir: $DEPLOY_PATH
+        skip_cleanup: true
+        on:
+            all_branches: true  # Let the condition below decide if the branch is to be deployed
+            condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # develop branch or tags
+            repo: GeoscienceAustralia/fc
+            python: "3.6"
 
 notifications:
     slack:
+    on_success: change
+    on_failure: always
+    on_pull_requests: true
         secure: kju0+7y8Qoo6Wn2QdaVo67fKizx1OvcZVgGulx88UXBPe89zm6bRrbW9lATJnl0Epa4WdoCSAqgfyEM3oGrJDH/cIDx4EnmRgZ+Yt4aPF7orllFCxw+yOFbH/axVr1fOr/7fxilkUwAXgwFNz/maEbRDj6wSH6xkaYEVMw5Waou36dZvwZYVBByS4eFaMLSk5IxpcHzgH+8bVmZO14dzBTGKbm17b2eC8bzedp9MyQNy3HR4odSDTp8m0XYuH3elACUBZusmfDlCAmyG5b2CNTByS2L6l99oaXAWYWjU6JmucVBHJQd3qwTbHGmHMCPgyVWyGFqZgt50kePQis6HTeVDPrCCfHgBp+6TFki1kmsW6V0WMIHA1oQAbZdEayjDzDBXYWTvP64D4GxdH8EKRkHrlANQJmeS4+z3GWY/Thr1QqFFzFKyASuujPiXTVVXV+GasaYRULlB+QikAXPIwvshVuI3fipnz2zdUDeWRqFXyldhxvo7/IwcRdDwSVf5uquOWGB/mOkZtYYkO0tadLPOTEQNKAkmPPGLDcirUhetIZpiILNuuW4E5EyNPeYHUV9KE+7Zkfk1clDfZ2WfchCPE2db+AkXpFqFR8EB69MkqpV85ac54rJHopfpZpNEIzmuac+g4rACYJ44W1lxqplE9GTY7H+nAsuAPdy+2TM=
