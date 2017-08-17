@@ -66,7 +66,7 @@ to run::
 
 See http://vdi.nci.org.au/help#heading=h.u1kl1j7vdt16 for more details.
 
-You will also need to setup datacube to work from VDI and rajin.
+You will also need to setup datacube to work from VDI and raijin.
 
 ::
 
@@ -108,7 +108,7 @@ Options:
 * ``-n, --nodes INTEGER RANGE``     Number of *nodes* to request  [required]
 * ``-t, --walltime 4``              Number of *hours* to request
 * ``--name TEXT``                   Job name to use
-* ``--config PATH``                 Datacube config file (be default uses the currently loaded AGDC module)
+* ``--config PATH``                 Datacube config file (by default uses the currently loaded AGDC module)
 * ``--env PATH``                    Node environment setup script (by default uses the installed production environment)
 * ``--help``                        Show help message.
 
