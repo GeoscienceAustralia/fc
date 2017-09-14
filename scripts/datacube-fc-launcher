@@ -5,6 +5,7 @@ from __future__ import print_function
 import subprocess
 import click
 from pathlib import Path
+from datacube.ui import click as ui
 
 ROOT_DIR = Path(__file__).absolute().parent.parent
 CONFIG_DIR = ROOT_DIR / 'config'
@@ -20,6 +21,17 @@ def cli():
 def list():
     for cfg in CONFIG_DIR.glob('*.yaml'):
         print(cfg.name)
+
+
+APP_NAME = 'datacube-fc-launcher'
+@cli.command()
+@click.option('--project', '-P', default='u46')
+@click.option('--queue', '-q', default='normal',
+              type=click.Choice(['normal', 'express']))
+@ui.pass_index(app_name=APP_NAME)
+@click.argument('app_config')
+@click.argument('year', required=False, default=None)
+def launcher(index, app_config, year, queue, project):
 
 
 @cli.command(short_help='Submit a job to qsub',
@@ -140,6 +152,10 @@ def make_fc_taskfile(year, app_config, config_arg, confirm=True):
                       year_arg=year_arg)
     if not confirm or click.confirm('\n' + cmd + '\nRUN?', default=True):
         subprocess.check_call(cmd, shell=True)
+
+        # check the output for "Saved config and %d tasks to %s"
+        # weep into my coffee
+        # Return the number of generated tasks
 
     return taskfile
 

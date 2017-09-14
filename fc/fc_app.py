@@ -3,13 +3,14 @@ from __future__ import absolute_import, print_function
 import errno
 import logging
 import os
+import time
 from copy import deepcopy
 from functools import partial
 from time import time as time_now
+from pathlib import Path
 
 import click
 from pandas import to_datetime
-from pathlib import Path
 
 from datacube.api.grid_workflow import GridWorkflow
 from datacube.model import DatasetType, GeoPolygon
@@ -18,8 +19,8 @@ from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
+from datacube_stats.cli.qsub import QSubLauncher
 from fc.fractional_cover import fractional_cover
-
 
 _LOG = logging.getLogger('agdc-fc')
 
@@ -171,17 +172,69 @@ def process_result(index, result):
 
 APP_NAME = 'datacube-fc'
 
+# TODO: This is probably all messed up, depends how we get installed
+ROOT_DIR = Path(__file__).absolute().parent.parent
+CONFIG_DIR = ROOT_DIR / 'config'
+SCRIPT_DIR = ROOT_DIR / 'scripts'
 
-@click.command(name=APP_NAME)
+
+@click.group(help='Datacube Fractional Cover')
+def cli():
+    pass
+
+
+@cli.command(name='list', help='List installed Fractional Cover config files')
+def list_configs():
+    for cfg in CONFIG_DIR.glob('*.yaml'):
+        print(cfg.name)
+
+
+@cli.command(help='Generate Tasks into file and Queue PBS job to process them')
+@click.option('--project', '-P', default='u46')
+@click.option('--queue', '-q', default='normal',
+              type=click.Choice(['normal', 'express']))
+@click.option('--year', 'time', callback=task_app.validate_year, help='Limit the process to a particular year')
+@task_app.task_app_options
+@ui.pass_index(app_name=APP_NAME)
+def qsub_generate_tasks_and_run(index, app_config, project, output_tasks_file, time):
+    config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, time=time)
+
+    num_tasks_saved = task_app.save_tasks(config, tasks, output_tasks_file)
+
+    # Compute how many nodes/cpus/memory and maybe queue-size
+
+    qsub = QSubLauncher({'-P': project, 'mem': '10gb', 'ncpus': 1, 'walltime': '05:00:00'})
+    qsub('run', '--load-tasks', output_tasks_file)
+
+
+@cli.command(name=APP_NAME)
 @ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--year', 'time', callback=task_app.validate_year, help='Limit the process to a particular year')
 @click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
               help='Number of tasks to queue at the start')
 @task_app.task_app_options
-@task_app.task_app(make_config=make_fc_config, make_tasks=make_fc_tasks)
-def fc_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwargs):
+def run(index, executor, dry_run, queue_size, app_config=None,
+        input_tasks_file=None, output_tasks_file=None, *args, **kwargs):
     click.echo('Starting Fractional Cover processing...')
+
+    # ## Stolen from task_app decorator ##
+
+    if (app_config is None) == (input_tasks_file is None):
+        click.echo('Must specify exactly one of --app-config, --load-tasks')
+        click.get_current_context().exit(1)
+
+    if app_config is not None:
+        config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, *args, **kwargs)
+
+    if output_tasks_file:
+        num_tasks_saved = task_app.save_tasks(config, tasks, output_tasks_file)
+        return num_tasks_saved != 0
+
+    if input_tasks_file:
+        config, tasks = task_app.load_tasks(input_tasks_file)
+
+    # ## End stolen from task_app decorator ##
 
     if dry_run:
         task_app.check_existing_files((task['filename'] for task in tasks))
@@ -194,4 +247,4 @@ def fc_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwargs)
 
 
 if __name__ == "__main__":
-    fc_app()
+    cli()
