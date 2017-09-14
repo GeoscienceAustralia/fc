@@ -19,7 +19,7 @@ from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
-from datacube_stats.cli.qsub import QSubLauncher
+from datacube_stats.cli.qsub import QSubLauncher, with_qsub_runner
 from fc.fractional_cover import fractional_cover
 
 _LOG = logging.getLogger('agdc-fc')
@@ -205,6 +205,18 @@ def qsub_generate_tasks_and_run(index, app_config, project, output_tasks_file, t
 
     qsub = QSubLauncher({'-P': project, 'mem': '10gb', 'ncpus': 1, 'walltime': '05:00:00'})
     qsub('run', '--load-tasks', output_tasks_file)
+
+
+
+# Maybe this should just use the existing task_app stuff, but it means we need to go back to the
+# launcher script which needs and environment.sh file and, yeargh
+# It's almost certainly nicer to do the processing using Kirril's `runner`
+@cli.command()
+@task_app.load_tasks_option
+@with_qsub_runner()
+def process_tasks(queue_size, input_tasks_file, runner):
+    pass
+
 
 
 @cli.command(name=APP_NAME)
