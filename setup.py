@@ -44,7 +44,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'datacube-fc = fc.fc_app:fc_app',
+            'datacube-fc = fc.fc_app:cli',
         ]
     },
     ext_modules=[
