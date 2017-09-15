@@ -3,7 +3,6 @@ from __future__ import absolute_import, print_function
 import errno
 import logging
 import os
-import time
 from copy import deepcopy
 from functools import partial
 from time import time as time_now
@@ -84,14 +83,14 @@ def get_filename(config, tile_index, sources):
                                      version=config['task_timestamp'])
 
 
-def make_fc_tasks(index, config, time=None, **kwargs):
+def make_fc_tasks(index, config, time_range=None, **kwargs):
     input_type = config['nbar_dataset_type']
     output_type = config['fc_dataset_type']
 
     workflow = GridWorkflow(index, output_type.grid_spec)
 
-    tiles_in = workflow.list_tiles(product=input_type.name, time=time)
-    tiles_out = workflow.list_tiles(product=output_type.name, time=time)
+    tiles_in = workflow.list_tiles(product=input_type.name, time=time_range)
+    tiles_out = workflow.list_tiles(product=output_type.name, time=time_range)
 
     def make_task(tile, **task_kwargs):
         task = dict(nbar=workflow.update_tile_lineage(tile))
@@ -193,11 +192,11 @@ def list_configs():
 @click.option('--project', '-P', default='u46')
 @click.option('--queue', '-q', default='normal',
               type=click.Choice(['normal', 'express']))
-@click.option('--year', 'time', callback=task_app.validate_year, help='Limit the process to a particular year')
+@click.option('--year', 'time_range', callback=task_app.validate_year, help='Limit the process to a particular year')
 @task_app.task_app_options
 @ui.pass_index(app_name=APP_NAME)
-def qsub_generate_tasks_and_run(index, app_config, project, output_tasks_file, time):
-    config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, time=time)
+def qsub_generate_tasks_and_run(index, app_config, project, output_tasks_file, time_range):
+    config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, time_range=time_range)
 
     num_tasks_saved = task_app.save_tasks(config, tasks, output_tasks_file)
 
