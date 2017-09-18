@@ -45,6 +45,7 @@ after_success:
 before_deploy:
     - python setup.py sdist --dist-dir dist/$TRAVIS_PYTHON_VERSION
     - DEPLOY_PATH=$TRAVIS_REPO_SLUG/${TRAVIS_TAG:-$TRAVIS_BRANCH}  # eg GeoscienceAustralia/fc/master
+    - echo $DEPLOY_PATH
 
 deploy:
     - provider: s3
