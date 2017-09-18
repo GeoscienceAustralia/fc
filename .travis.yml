@@ -1,5 +1,9 @@
 ---
 dist: trusty
+git:
+  # We need a deeper depth for 'git descibe' to ensure
+  # we can reach the last tagged version.
+  depth: 99999
 language: python
 python:
     - '3.6'
@@ -41,6 +45,7 @@ after_success:
 before_deploy:
     - python setup.py sdist --dist-dir dist/$TRAVIS_PYTHON_VERSION
     - DEPLOY_PATH=$TRAVIS_REPO_SLUG/${TRAVIS_TAG:-$TRAVIS_BRANCH}  # eg GeoscienceAustralia/fc/master
+    - echo $DEPLOY_PATH
 
 deploy:
     - provider: s3
@@ -54,7 +59,7 @@ deploy:
       skip_cleanup: true
       on:
           all_branches: true  # Let the condition below decide if the branch is to be deployed
-          condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # develop branch or tags
+          condition: $TRAVIS_BRANCH = "checking_travis_build" || ! -z "${TRAVIS_TAG}"  # develop branch or tags
           repo: GeoscienceAustralia/fc
           python: "3.6"
 
