@@ -18,7 +18,7 @@ from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
-from datacube_stats.cli.qsub import QSubLauncher, with_qsub_runner
+from digitalearthau.qsub import QSubLauncher, with_qsub_runner
 from fc.fractional_cover import fractional_cover
 
 _LOG = logging.getLogger('agdc-fc')
@@ -195,21 +195,26 @@ def list_configs():
 @click.option('--year', 'time_range', callback=task_app.validate_year, help='Limit the process to a particular year')
 @task_app.task_app_options
 @ui.pass_index(app_name=APP_NAME)
-def qsub_generate_tasks_and_run(index, app_config, project, output_tasks_file, time_range):
+def qsub_generate_tasks_and_run(index, app_config, project, queue, output_tasks_file, time_range):
     config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, time_range=time_range)
 
     num_tasks_saved = task_app.save_tasks(config, tasks, output_tasks_file)
 
     # Compute how many nodes/cpus/memory and maybe queue-size
 
-    qsub = QSubLauncher({'-P': project, 'mem': '10gb', 'ncpus': 1, 'walltime': '05:00:00'})
+    qsub = QSubLauncher({'project': project,
+                         'queue': queue,
+                         'mem': '10gb',
+                         'ncpus': 1,
+                         'noask': True,
+                         'walltime': '05:00:00'})
     qsub('run', '--load-tasks', output_tasks_file)
 
 
 
 # Maybe this should just use the existing task_app stuff, but it means we need to go back to the
 # launcher script which needs and environment.sh file and, yeargh
-# It's almost certainly nicer to do the processing using Kirril's `runner`
+# It's almost certainly nicer to do the processing using Kirill's `runner`
 @cli.command()
 @task_app.load_tasks_option
 @with_qsub_runner()
