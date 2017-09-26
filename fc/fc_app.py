@@ -18,7 +18,7 @@ from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
-from digitalearthau.qsub import QSubLauncher, with_qsub_runner
+from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params
 from fc.fractional_cover import fractional_cover
 
 _LOG = logging.getLogger('agdc-fc')
@@ -177,6 +177,9 @@ CONFIG_DIR = ROOT_DIR / 'config'
 SCRIPT_DIR = ROOT_DIR / 'scripts'
 
 
+tag_option = click.option('--tag', type=str, default='notset', help='Unique id for the job')
+
+
 @click.group(help='Datacube Fractional Cover')
 def cli():
     pass
@@ -188,69 +191,124 @@ def list_configs():
         print(cfg.name)
 
 
+def estimate_job_size(num_tasks):
+    """ Translate num_tasks to number of nodes and walltime
+    """
+    nodes = 1
+    walltime = '1h'
+
+    # TODO: Actually compute number of nodes and expected walltime
+    return nodes, walltime
+
+
+@cli.command(help='Kick off two stage PBS job')
+@click.option('--project', '-P', default='u46')
+@click.option('--queue', '-q', default='normal',
+              type=click.Choice(['normal', 'express']))
+@click.option('--year', type=str, help='Limit the process to a particular year')
+@tag_option
+@task_app.app_config_option
+@task_app.save_tasks_option
+def submit(app_config,
+           project,
+           queue,
+           output_tasks_file,
+           year,
+           tag):
+
+    _LOG.info('Tag: %s', tag)
+
+    qsub = QSubLauncher(norm_qsub_params(
+        {'project': project,
+         'queue': queue,
+         'mem': '4G',
+         'noask': True,
+         'ncpus': 1,
+         'walltime': '1h'}))
+
+    ret_code, qsub_stdout = qsub('generate',
+                                 '-v', '-v',
+                                 '--save-tasks', str(output_tasks_file),
+                                 '--project', project,
+                                 '--queue', queue,
+                                 '--app-config', str(app_config),
+                                 '--year', year,
+                                 '--tag', tag)
+
+    _LOG.info('Launched qsub: %d -> %s', ret_code, qsub_stdout)
+
+
 @cli.command(help='Generate Tasks into file and Queue PBS job to process them')
 @click.option('--project', '-P', default='u46')
 @click.option('--queue', '-q', default='normal',
               type=click.Choice(['normal', 'express']))
 @click.option('--year', 'time_range', callback=task_app.validate_year, help='Limit the process to a particular year')
-@task_app.task_app_options
+@click.option('--no-qsub', 'no_qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
+@tag_option
+@task_app.app_config_option
+@task_app.save_tasks_option
+@ui.config_option
+@ui.verbose_option
+@ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
-def qsub_generate_tasks_and_run(index, app_config, project, queue, output_tasks_file, time_range):
+def generate(index,
+             app_config,
+             project,
+             queue,
+             output_tasks_file,
+             time_range,
+             no_qsub,
+             tag):
     config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, time_range=time_range)
 
     num_tasks_saved = task_app.save_tasks(config, tasks, output_tasks_file)
+    _LOG.info('Tag: %s', tag)
+    _LOG.info('Found %d tasks', num_tasks_saved)
 
-    # Compute how many nodes/cpus/memory and maybe queue-size
+    if no_qsub:
+        return 0
 
-    qsub = QSubLauncher({'project': project,
-                         'queue': queue,
-                         'mem': '10gb',
-                         'ncpus': 1,
-                         'noask': True,
-                         'walltime': '05:00:00'})
-    qsub('run', '--load-tasks', output_tasks_file)
+    nodes, walltime = estimate_job_size(num_tasks_saved)
+
+    qsub = QSubLauncher(norm_qsub_params(
+        {'project': project,
+         'queue': queue,
+         'mem': 'small',
+         'noask': True,
+         'nodes': nodes,
+         'walltime': walltime}))
+
+    ret_code, qsub_stdout = qsub('run',
+                                 '-v', '-v',
+                                 '--load-tasks', str(output_tasks_file),
+                                 '--celery', 'pbs-launch',
+                                 '--tag', tag)
+
+    _LOG.info('Launched qsub: %d -> %s', ret_code, qsub_stdout)
+    return ret_code
 
 
-
-# Maybe this should just use the existing task_app stuff, but it means we need to go back to the
-# launcher script which needs and environment.sh file and, yeargh
-# It's almost certainly nicer to do the processing using Kirill's `runner`
-@cli.command()
-@task_app.load_tasks_option
-@with_qsub_runner()
-def process_tasks(queue_size, input_tasks_file, runner):
-    pass
-
-
-
-@cli.command(name=APP_NAME)
+@cli.command(help='Actually process generated task file')
 @ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--year', 'time', callback=task_app.validate_year, help='Limit the process to a particular year')
-@click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
-              help='Number of tasks to queue at the start')
-@task_app.task_app_options
-def run(index, executor, dry_run, queue_size, app_config=None,
-        input_tasks_file=None, output_tasks_file=None, *args, **kwargs):
-    click.echo('Starting Fractional Cover processing...')
+@with_qsub_runner()
+@task_app.load_tasks_option
+@tag_option
+@ui.config_option
+@ui.verbose_option
+@ui.pass_index(app_name=APP_NAME)
+def run(index,
+        dry_run,
+        tag,
+        qsub, runner,
+        input_tasks_file=None,
+        *args, **kwargs):
 
-    # ## Stolen from task_app decorator ##
-
-    if (app_config is None) == (input_tasks_file is None):
-        click.echo('Must specify exactly one of --app-config, --load-tasks')
-        click.get_current_context().exit(1)
-
-    if app_config is not None:
-        config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, *args, **kwargs)
-
-    if output_tasks_file:
-        num_tasks_saved = task_app.save_tasks(config, tasks, output_tasks_file)
-        return num_tasks_saved != 0
+    _LOG.info('Starting Fractional Cover processing...')
+    _LOG.info('Tag: %s', tag)
 
     if input_tasks_file:
         config, tasks = task_app.load_tasks(input_tasks_file)
-
-    # ## End stolen from task_app decorator ##
 
     if dry_run:
         task_app.check_existing_files((task['filename'] for task in tasks))
@@ -259,7 +317,7 @@ def run(index, executor, dry_run, queue_size, app_config=None,
     task_func = partial(do_fc_task, config)
     process_func = partial(process_result, index)
 
-    task_app.run_tasks(tasks, executor, task_func, process_func, queue_size)
+    runner(tasks, task_func, process_func)
 
 
 if __name__ == "__main__":
