@@ -165,7 +165,7 @@ def do_fc_task(config, task):
 
 def process_result(index, result):
     for dataset in result.values:
-        index.datasets.add(dataset, skip_sources=True)
+        index.datasets.add(dataset, sources_policy='skip')
         _LOG.info('Dataset added')
 
 
@@ -176,7 +176,10 @@ ROOT_DIR = Path(__file__).absolute().parent.parent
 CONFIG_DIR = ROOT_DIR / 'config'
 SCRIPT_DIR = ROOT_DIR / 'scripts'
 
-tag_option = click.option('--tag', type=str, default='notset', help='Unique id for the job')  # pylint: disable=invalid-name
+# pylint: disable=invalid-name
+tag_option = click.option('--tag', type=str,
+                          default='notset',
+                          help='Unique id for the job')
 
 
 @click.group(help='Datacube Fractional Cover')
@@ -205,6 +208,7 @@ def estimate_job_size(num_tasks):
 @click.option('--queue', '-q', default='normal',
               type=click.Choice(['normal', 'express']))
 @click.option('--year', type=str, help='Limit the process to a particular year')
+@ui.verbose_option
 @tag_option
 @task_app.app_config_option
 @task_app.save_tasks_option
@@ -220,10 +224,15 @@ def submit(app_config,
     qsub = QSubLauncher(norm_qsub_params(
         {'project': project,
          'queue': queue,
+         'name': 'fc-generate-{}'.format(tag),
          'mem': '4G',
          'noask': True,
+         'wd': True,
          'ncpus': 1,
          'walltime': '1h'}))
+
+    app_config = Path(app_config).absolute()
+    output_tasks_file = Path(output_tasks_file).absolute()
 
     ret_code, qsub_stdout = qsub('generate',
                                  '-v', '-v',
@@ -258,21 +267,28 @@ def generate(index,
              time_range,
              no_qsub,
              tag):
+    output_tasks_file = Path(output_tasks_file).absolute()
+
     config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, time_range=time_range)
 
     num_tasks_saved = task_app.save_tasks(config, tasks, output_tasks_file)
     _LOG.info('Tag: %s', tag)
     _LOG.info('Found %d tasks', num_tasks_saved)
 
-    if no_qsub:
-        return 0
-
     nodes, walltime = estimate_job_size(num_tasks_saved)
+
+    _LOG.info('Will request %d nodes and %s time', nodes, walltime)
+
+    if no_qsub:
+        _LOG.info('Quitting early as requested')
+        return 0
 
     qsub = QSubLauncher(norm_qsub_params(
         {'project': project,
          'queue': queue,
+         'name': 'fc-run-{}'.format(tag),
          'mem': 'small',
+         'wd': True,
          'noask': True,
          'nodes': nodes,
          'walltime': walltime}))
@@ -288,7 +304,6 @@ def generate(index,
 
 
 @cli.command(help='Actually process generated task file')
-@ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @with_qsub_runner()
 @task_app.load_tasks_option
