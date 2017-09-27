@@ -176,8 +176,7 @@ ROOT_DIR = Path(__file__).absolute().parent.parent
 CONFIG_DIR = ROOT_DIR / 'config'
 SCRIPT_DIR = ROOT_DIR / 'scripts'
 
-
-tag_option = click.option('--tag', type=str, default='notset', help='Unique id for the job')
+tag_option = click.option('--tag', type=str, default='notset', help='Unique id for the job')  # pylint: disable=invalid-name
 
 
 @click.group(help='Datacube Fractional Cover')
