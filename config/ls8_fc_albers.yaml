@@ -11,22 +11,22 @@ partial_ncml_path_template: 'LS8_OLI_FC/{tile_index[0]}_{tile_index[1]}/LS8_OLI_
 ncml_path_template: 'LS8_OLI_FC/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}.ncml'
 
 sensor_regression_coefficients:
-  blue: |
+  blue:
     - 0.00041
     - 0.97470
-  green: |
+  green:
     - 0.00289
     - 0.99779
-  red: |
+  red:
     - 0.00274
     - 1.00446
-  nir: |
+  nir:
     - 0.00004
     - 0.98906
-  swir1: |
+  swir1:
     - 0.00256
     - 0.99467
-  swir2: |
+  swir2:
     - -0.00327
     - 1.02551
 
@@ -84,7 +84,7 @@ global_attributes:
   product_suite: Fractional Cover 25m
   acknowledgment: |
     Landsat data is provided by the United States Geological Survey (USGS) through direct reception of the data at Geoscience Australias satellite reception facility or download.
-    
+
     The fractional cover algorithm was developed by the Joint Remote Sensing Research Program (JRSRP) and is
     described in Scarth et al. (2010). While originally calibrated in Queensland, a large collaborative effort
     between The Department of Agriculture & ABARES and State and Territory governments to collect additional
