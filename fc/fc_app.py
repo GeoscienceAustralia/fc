@@ -1,4 +1,4 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, division
 
 import errno
 import logging
@@ -6,6 +6,7 @@ import os
 from copy import deepcopy
 from functools import partial
 from time import time as time_now
+from math import ceil
 from pathlib import Path
 
 import click
@@ -196,11 +197,22 @@ def list_configs():
 def estimate_job_size(num_tasks):
     """ Translate num_tasks to number of nodes and walltime
     """
-    nodes = 1
-    walltime = '1h'
+    max_nodes = 25
+    cores_per_node = 16
+    task_time_mins = 5
 
-    # TODO: Actually compute number of nodes and expected walltime
-    return nodes, walltime
+    # TODO: Tune this code:
+    # "We have found for best throughput 25 nodes can produce about 11.5 tiles per minute per node,
+    # with a CPU efficiency of about 96%."
+    if num_tasks < max_nodes * cores_per_node:
+        nodes = ceil(num_tasks / cores_per_node / 4)  # If fewer tasks than max cores, try to get 4 tasks to a core
+    else:
+        nodes = max_nodes
+
+    tasks_per_cpu = ceil(num_tasks / (nodes * cores_per_node))
+    wall_time_mins = '{mins}m'.format(mins=(task_time_mins * tasks_per_cpu))
+
+    return nodes, wall_time_mins
 
 
 @cli.command(help='Kick off two stage PBS job')
