@@ -4,6 +4,7 @@ import errno
 import logging
 import os
 from copy import deepcopy
+from datetime import datetime
 from functools import partial
 from time import time as time_now
 from math import ceil
@@ -12,6 +13,7 @@ from pathlib import Path
 import click
 import sys
 from pandas import to_datetime
+from typing import Tuple
 
 from datacube.api.grid_workflow import GridWorkflow
 from datacube.model import DatasetType, GeoPolygon
@@ -85,14 +87,18 @@ def get_filename(config, tile_index, sources):
                                      version=config['task_timestamp'])
 
 
-def make_fc_tasks(index, config, time_range=None, **kwargs):
+def make_fc_tasks(index,
+                  config,
+                  time_range: Tuple[datetime, datetime] = None,
+                  **kwargs):
     input_type = config['nbar_dataset_type']
     output_type = config['fc_dataset_type']
 
     workflow = GridWorkflow(index, output_type.grid_spec)
-
     tiles_in = workflow.list_tiles(product=input_type.name, time=time_range)
+    _LOG.info(f"{len(tiles_in)} {input_type.name} tiles in {time_range}")
     tiles_out = workflow.list_tiles(product=output_type.name, time=time_range)
+    _LOG.info(f"{len(tiles_out)} {output_type.name} tiles in {time_range}")
 
     def make_task(tile, **task_kwargs):
         task = dict(nbar=workflow.update_tile_lineage(tile))
@@ -231,7 +237,6 @@ def submit(app_config,
            output_tasks_file,
            year,
            tag):
-
     _LOG.info('Tag: %s', tag)
 
     qsub = QSubLauncher(norm_qsub_params(
@@ -343,7 +348,6 @@ def run(index,
         qsub, runner,
         input_tasks_file=None,
         *args, **kwargs):
-
     _LOG.info('Starting Fractional Cover processing...')
     _LOG.info('Tag: %s', tag)
 
