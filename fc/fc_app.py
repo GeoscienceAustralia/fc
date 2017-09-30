@@ -262,7 +262,9 @@ def submit(app_config,
 @click.option('--project', '-P', default='u46')
 @click.option('--queue', '-q', default='normal',
               type=click.Choice(['normal', 'express']))
-@click.option('--year', 'time_range', callback=task_app.validate_year, help='Limit the process to a particular year')
+@click.option('--year', 'time_range',
+              callback=task_app.validate_year,
+              help='Limit the process to a particular year')
 @click.option('--no-qsub', 'no_qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
 @tag_option
 @task_app.app_config_option
@@ -279,7 +281,15 @@ def generate(index,
              time_range,
              no_qsub,
              tag):
+    if not output_tasks_file:
+        raise click.MissingParameter("Missing mandatory option '--save-tasks <file>'")
     output_tasks_file = Path(output_tasks_file).absolute()
+
+    if not app_config:
+        raise click.MissingParameter("Missing mandatory option '--app-config <file>'")
+
+    if not time_range:
+        raise click.MissingParameter("Missing mandatory option '--year'")
 
     config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, time_range=time_range)
 
