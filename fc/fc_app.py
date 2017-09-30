@@ -10,6 +10,7 @@ from math import ceil
 from pathlib import Path
 
 import click
+import sys
 from pandas import to_datetime
 
 from datacube.api.grid_workflow import GridWorkflow
@@ -296,6 +297,9 @@ def generate(index,
     num_tasks_saved = task_app.save_tasks(config, tasks, output_tasks_file)
     _LOG.info('Tag: %s', tag)
     _LOG.info('Found %d tasks', num_tasks_saved)
+    if not num_tasks_saved:
+        _LOG.info("No tasks. Finishing.")
+        sys.exit(0)
 
     nodes, walltime = estimate_job_size(num_tasks_saved)
 
