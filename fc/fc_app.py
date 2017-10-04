@@ -22,7 +22,7 @@ from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
-from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params
+from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params, TaskRunner
 from fc.fractional_cover import fractional_cover
 
 _LOG = logging.getLogger('agdc-fc')
@@ -345,14 +345,17 @@ def generate(index,
 def run(index,
         dry_run,
         tag,
-        qsub, runner,
+        qsub: QSubLauncher,
+        runner: TaskRunner,
         input_tasks_file=None,
         *args, **kwargs):
     _LOG.info('Starting Fractional Cover processing...')
-    _LOG.info('Tag: %s', tag)
+    _LOG.info('Tag: %r', tag)
 
-    if input_tasks_file:
-        config, tasks = task_app.load_tasks(input_tasks_file)
+    if not input_tasks_file:
+        raise click.BadArgumentUsage("No input tasks file given")
+
+    config, tasks = task_app.load_tasks(input_tasks_file)
 
     if dry_run:
         task_app.check_existing_files((task['filename'] for task in tasks))
