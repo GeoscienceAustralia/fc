@@ -10,16 +10,21 @@ from numpy.distutils.core import Extension, setup, Command
 
 import versioneer
 
+
 class PyTest(Command):
     user_options = []
+
     def initialize_options(self):
         pass
+
     def finalize_options(self):
         pass
+
     def run(self):
-        import sys,subprocess
+        import sys, subprocess
         errno = subprocess.call([sys.executable, 'runtests.py'])
         raise SystemExit(errno)
+
 
 my_cmdclass = versioneer.get_cmdclass()
 my_cmdclass['test'] = PyTest
@@ -60,4 +65,3 @@ setup(
         )
     ],
 )
-
