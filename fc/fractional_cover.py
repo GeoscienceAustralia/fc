@@ -12,8 +12,6 @@ from . import endmembers
 from .unmix import unmiximage
 
 
-ENDMEMBERS_VERSION = '2014_07_23'
-
 DEFAULT_MEASUREMENTS = [{
     'name': 'PV',
     'dtype': 'int8',
