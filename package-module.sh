@@ -6,7 +6,7 @@ umask 002
 
 variant=prod
 export module_dir=/g/data/v10/public/modules
-export agdc_module=agdc-py2-prod
+export agdc_module=agdc-py3-prod
 export module_description="Datacube Fractional Cover utilities and configuration"
 
 while [[ $# > 0 ]]
