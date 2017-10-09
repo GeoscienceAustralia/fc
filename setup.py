@@ -41,6 +41,7 @@ setup(
         'numexpr',
         'datacube',
         'click>=5.0',
+        'pandas',
     ],
     entry_points={
         'console_scripts': [
