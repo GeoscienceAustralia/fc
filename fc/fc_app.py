@@ -364,7 +364,11 @@ def run(index,
     task_func = partial(do_fc_task, config)
     process_func = partial(process_result, index)
 
-    runner(tasks, task_func, process_func)
+    try:
+        runner(tasks, task_func, process_func)
+        _LOG.info("Runner finished normally, triggering shutdown.")
+    finally:
+        runner.stop()
 
 
 if __name__ == "__main__":
