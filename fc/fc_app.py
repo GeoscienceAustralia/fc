@@ -24,6 +24,7 @@ from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
 from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params, TaskRunner
 from fc.fractional_cover import fractional_cover
+from datacube.index._api import Index
 
 _LOG = logging.getLogger('agdc-fc')
 
@@ -171,10 +172,10 @@ def do_fc_task(config, task):
     return datasets
 
 
-def process_result(index, result):
+def process_result(index: Index, result):
     for dataset in result.values:
         index.datasets.add(dataset, sources_policy='skip')
-        _LOG.info('Dataset added')
+        _LOG.info('Dataset %s added at %s', dataset.id, dataset.uris)
 
 
 APP_NAME = 'datacube-fc'
