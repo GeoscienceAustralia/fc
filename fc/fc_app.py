@@ -190,6 +190,16 @@ tag_option = click.option('--tag', type=str,
                           default='notset',
                           help='Unique id for the job')
 
+DEFAULT_WORK_FOLDER = '/g/data/v10/work/generate/{output_product}/{work_time:%Y-%m}/{work_time:dT%H%M}'
+
+
+def _get_output_log_folder(config: dict) -> Path:
+    work_folder = DEFAULT_WORK_FOLDER.format(
+        work_time=config['task_timestamp'],
+        output_product=config['output_type'],
+    )
+    return Path(work_folder)
+
 
 @click.group(help='Datacube Fractional Cover')
 def cli():
@@ -315,6 +325,8 @@ def generate(index,
         _LOG.info('Quitting early as requested')
         return 0
 
+    log_path = _get_output_log_folder(config)
+
     qsub = QSubLauncher(norm_qsub_params(
         {'project': project,
          'queue': queue,
@@ -323,7 +335,9 @@ def generate(index,
          'wd': True,
          'noask': True,
          'nodes': nodes,
-         'walltime': walltime}))
+         'walltime': walltime,
+         # TODO: Add stdout/stderr from log_path
+         }))
 
     ret_code, qsub_stdout = qsub('run',
                                  '-v', '-v',
