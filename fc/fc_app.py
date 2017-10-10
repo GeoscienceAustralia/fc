@@ -261,17 +261,18 @@ def submit(index: Index,
 
     task_datetime = datetime.utcnow().replace(tzinfo=tz.tzutc())
 
-    app_config_path = Path(app_config).absolute()
+    app_config_path = Path(app_config).resolve()
     app_config = paths.read_document(app_config_path)
 
     work_path = paths.get_product_work_directory(
         output_product=app_config['output_type'],
-        submission_time=task_datetime
+        time=task_datetime
     )
+    work_path.mkdir(parents=True, exist_ok=False)
 
-    task_description_path = work_path.joinpath('task-description.yaml')
+    task_description_path = work_path.joinpath('task-description.json')
 
-    serialise.dump_document(
+    serialise.dump_structure(
         task_description_path,
         TaskDescription(
             type_="fc.run",
@@ -286,8 +287,7 @@ def submit(index: Index,
                 config_path=app_config_path,
                 task_serialisation_path=work_path.joinpath('generated-tasks.pickle'),
             )
-        ),
-        allow_unsafe=True
+        )
     )
 
     ret_code, qsub_stdout = qsub('generate',
@@ -374,8 +374,7 @@ def generate(index,
 
 
 def _read_task_description(task_description_file: Path) -> TaskDescription:
-    d = paths.read_document(task_description_file)
-    raise NotImplementedError("TODO")
+    return serialise.load_structure(task_description_file, TaskDescription)
 
 
 @cli.command(help='Actually process generated task file')
