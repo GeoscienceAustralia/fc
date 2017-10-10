@@ -397,17 +397,13 @@ def run(index,
         task_description_file: str,
         qsub: QSubLauncher,
         runner: TaskRunner,
-        input_tasks_file=None,
         *args, **kwargs):
     _LOG.info('Starting Fractional Cover processing...')
     _LOG.info('Tag: %r', tag)
 
     task_description = _read_task_description(Path(task_description_file))
 
-    if not input_tasks_file:
-        raise click.BadArgumentUsage("No input tasks file given")
-
-    config, tasks = task_app.load_tasks(input_tasks_file)
+    config, tasks = task_app.load_tasks(task_description.parameters.task_serialisation_path)
 
     if dry_run:
         task_app.check_existing_files((task['filename'] for task in tasks))
