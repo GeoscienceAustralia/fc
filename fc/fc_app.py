@@ -322,22 +322,14 @@ def submit(index: Index,
 @ui.verbose_option
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
-def generate(index,
-             project,
-             queue,
-             task_description_file,
-             no_qsub,
-             tag):
-    task_description = _read_task_description(task_description_file)
-    task_time: datetime = task_description.task_dt
+def generate(index: Index,
+             project: str,
+             queue: str,
+             task_description_file: str,
+             no_qsub: bool,
+             tag: str):
+    config, task_description = _read_config_and_description(index, Path(task_description_file))
 
-    app_config = task_description.runtime_state.config_path
-    config = paths.read_document(app_config)
-    config['task_timestamp'] = int(task_time.timestamp())
-    # TODO: This is only recording the name, not the path?
-    config['app_config_file'] = Path(app_config).name
-
-    config = make_fc_config(index, config)
     tasks = make_fc_tasks(index, config, query=task_description.parameters.query)
 
     num_tasks_saved = task_app.save_tasks(
@@ -384,8 +376,21 @@ def generate(index,
     return ret_code
 
 
-def _read_task_description(task_description_file: Path) -> TaskDescription:
-    return serialise.load_structure(task_description_file, TaskDescription)
+def _read_config_and_description(index: Index, task_description_path: Path) -> Tuple[dict, TaskDescription]:
+    task_description = serialise.load_structure(task_description_path, TaskDescription)
+
+    task_time: datetime = task_description.task_dt
+    app_config = task_description.runtime_state.config_path
+
+    config = paths.read_document(app_config)
+
+    # TODO: This carries over the old behaviour of each load. Still necessary?
+    config['task_timestamp'] = int(task_time.timestamp())
+    # TODO: This is only recording the name, not the path?
+    config['app_config_file'] = Path(app_config).name
+    config = make_fc_config(index, config)
+
+    return config, task_description
 
 
 @cli.command(help='Actually process generated task file')
@@ -402,8 +407,8 @@ def _read_task_description(task_description_file: Path) -> TaskDescription:
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
 def run(index,
-        dry_run,
-        tag,
+        dry_run: bool,
+        tag: str,
         task_description_file: str,
         qsub: QSubLauncher,
         runner: TaskRunner,
@@ -411,7 +416,7 @@ def run(index,
     _LOG.info('Starting Fractional Cover processing...')
     _LOG.info('Tag: %r', tag)
 
-    task_description = _read_task_description(Path(task_description_file))
+    task_description = serialise.load_structure(Path(task_description_file), TaskDescription)
 
     config, tasks = task_app.load_tasks(task_description.runtime_state.task_serialisation_path)
 
