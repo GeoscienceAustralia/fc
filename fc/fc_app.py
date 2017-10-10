@@ -3,23 +3,22 @@ from __future__ import absolute_import, print_function, division
 import errno
 import logging
 import os
+import sys
 from copy import deepcopy
-from datetime import datetime
 from functools import partial
-from time import time as time_now
 from math import ceil
 from pathlib import Path
+from time import time as time_now
 
 import click
-import sys
-
+from datetime import datetime
+from dateutil import tz
 from pandas import to_datetime
 from typing import Tuple
 
-from dateutil import tz
-
 from datacube.api.grid_workflow import GridWorkflow
 from datacube.api.query import Query
+from datacube.index._api import Index
 from datacube.model import DatasetType, GeoPolygon
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.storage.storage import write_dataset_to_netcdf
@@ -30,7 +29,6 @@ from digitalearthau import paths, serialise
 from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params, TaskRunner
 from digitalearthau.runners.model import TaskAppState, TaskDescription, DefaultJobParameters
 from fc.fractional_cover import fractional_cover
-from datacube.index._api import Index
 
 _LOG = logging.getLogger('agdc-fc')
 
@@ -357,17 +355,17 @@ def generate(index,
         _LOG.info('Quitting early as requested')
         return 0
 
-    qsub = QSubLauncher(norm_qsub_params(
-        {'project': project,
-         'queue': queue,
-         'name': 'fc-run-{}'.format(tag),
-         'mem': 'small',
-         'wd': True,
-         'noask': True,
-         'nodes': nodes,
-         'walltime': walltime,
-         # TODO: Add stdout/stderr from log_path
-         }))
+    qsub = QSubLauncher(norm_qsub_params({
+        'project': project,
+        'queue': queue,
+        'name': 'fc-run-{}'.format(tag),
+        'mem': 'small',
+        'wd': True,
+        'noask': True,
+        'nodes': nodes,
+        'walltime': walltime,
+        # TODO: Add stdout/stderr from log_path
+    }))
 
     ret_code, qsub_stdout = qsub('run',
                                  '-v', '-v',
