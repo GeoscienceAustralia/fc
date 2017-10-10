@@ -12,24 +12,30 @@ from pathlib import Path
 
 import click
 import sys
+
 from pandas import to_datetime
 from typing import Tuple
 
+from dateutil import tz
+
 from datacube.api.grid_workflow import GridWorkflow
+from datacube.api.query import Query
 from datacube.model import DatasetType, GeoPolygon
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
-from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params, TaskRunner
+from digitalearthau import paths, serialise
+from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params, TaskRunner, TaskDescription, \
+    TaskAppParameters
 from fc.fractional_cover import fractional_cover
 from datacube.index._api import Index
 
 _LOG = logging.getLogger('agdc-fc')
 
 
-def make_fc_config(index, config, dry_run=False, **query):
+def make_fc_config(index, config, dry_run=False, **kwargs):
     source_type = index.products.get_by_name(config['source_type'])
     if not source_type:
         _LOG.error("Source DatasetType %s does not exist", config['source_type'])
@@ -88,18 +94,18 @@ def get_filename(config, tile_index, sources):
                                      version=config['task_timestamp'])
 
 
-def make_fc_tasks(index,
-                  config,
-                  time_range: Tuple[datetime, datetime] = None,
+def make_fc_tasks(index: Index,
+                  config: dict,
+                  query: dict,
                   **kwargs):
     input_type = config['nbar_dataset_type']
     output_type = config['fc_dataset_type']
 
     workflow = GridWorkflow(index, output_type.grid_spec)
-    tiles_in = workflow.list_tiles(product=input_type.name, time=time_range)
-    _LOG.info(f"{len(tiles_in)} {input_type.name} tiles in {time_range}")
-    tiles_out = workflow.list_tiles(product=output_type.name, time=time_range)
-    _LOG.info(f"{len(tiles_out)} {output_type.name} tiles in {time_range}")
+    tiles_in = workflow.list_tiles(product=input_type.name, **query)
+    _LOG.info(f"{len(tiles_in)} {input_type.name} tiles in {repr(query)}")
+    tiles_out = workflow.list_tiles(product=output_type.name, **query)
+    _LOG.info(f"{len(tiles_out)} {output_type.name} tiles in {repr(query)}")
 
     def make_task(tile, **task_kwargs):
         task = dict(nbar=workflow.update_tile_lineage(tile))
@@ -190,16 +196,6 @@ tag_option = click.option('--tag', type=str,
                           default='notset',
                           help='Unique id for the job')
 
-DEFAULT_WORK_FOLDER = '/g/data/v10/work/generate/{output_product}/{work_time:%Y-%m}/{work_time:dT%H%M}'
-
-
-def _get_output_log_folder(config: dict) -> Path:
-    work_folder = DEFAULT_WORK_FOLDER.format(
-        work_time=config['task_timestamp'],
-        output_product=config['output_type'],
-    )
-    return Path(work_folder)
-
 
 @click.group(help='Datacube Fractional Cover')
 def cli():
@@ -237,17 +233,20 @@ def estimate_job_size(num_tasks):
 @click.option('--project', '-P', default='u46')
 @click.option('--queue', '-q', default='normal',
               type=click.Choice(['normal', 'express']))
-@click.option('--year', type=str, help='Limit the process to a particular year')
-@ui.verbose_option
+@click.option('--year', 'time_range',
+              callback=task_app.validate_year,
+              help='Limit the process to a particular year')
 @tag_option
 @task_app.app_config_option
-@task_app.save_tasks_option
-def submit(app_config,
-           project,
-           queue,
-           output_tasks_file,
-           year,
-           tag):
+@ui.config_option
+@ui.verbose_option
+@ui.pass_index(app_name=APP_NAME)
+def submit(index: Index,
+           app_config: str,
+           project: str,
+           queue: str,
+           time_range: Tuple[datetime, datetime],
+           tag: str):
     _LOG.info('Tag: %s', tag)
 
     qsub = QSubLauncher(norm_qsub_params(
@@ -260,16 +259,42 @@ def submit(app_config,
          'ncpus': 1,
          'walltime': '1h'}))
 
-    app_config = Path(app_config).absolute()
-    output_tasks_file = Path(output_tasks_file).absolute()
+    task_datetime = datetime.utcnow().replace(tzinfo=tz.tzutc())
+
+    app_config_path = Path(app_config).absolute()
+    app_config = paths.read_document(app_config_path)
+
+    work_path = paths.get_product_work_directory(
+        output_product=app_config['output_type'],
+        submission_time=task_datetime
+    )
+
+    task_description_path = work_path.joinpath('task-description.yaml')
+
+    serialise.dump_document(
+        task_description_path,
+        TaskDescription(
+            type_="fc.run",
+            task_dt=task_datetime,
+            events_path=work_path.joinpath('events'),
+            logs_path=work_path.joinpath('logs'),
+            # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time?
+            query=Query(index=index, time=time_range).search_terms,
+
+            # Task-app framework
+            parameters=TaskAppParameters(
+                config_path=app_config_path,
+                task_serialisation_path=work_path.joinpath('generated-tasks.pickle'),
+            )
+        ),
+        allow_unsafe=True
+    )
 
     ret_code, qsub_stdout = qsub('generate',
                                  '-v', '-v',
-                                 '--save-tasks', str(output_tasks_file),
                                  '--project', project,
                                  '--queue', queue,
-                                 '--app-config', str(app_config),
-                                 '--year', year,
+                                 '--task-description', str(task_description_path),
                                  '--tag', tag)
 
     _LOG.info('Launched qsub: %d -> %s', ret_code, qsub_stdout)
@@ -279,38 +304,39 @@ def submit(app_config,
 @click.option('--project', '-P', default='u46')
 @click.option('--queue', '-q', default='normal',
               type=click.Choice(['normal', 'express']))
-@click.option('--year', 'time_range',
-              callback=task_app.validate_year,
-              help='Limit the process to a particular year')
-@click.option('--no-qsub', 'no_qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
+@click.option('--no-qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
+@click.option(
+    '--task-description', 'task_description_file', help='',
+    required=True,
+    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
+)
 @tag_option
-@task_app.app_config_option
-@task_app.save_tasks_option
-@ui.config_option
 @ui.verbose_option
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
 def generate(index,
-             app_config,
              project,
              queue,
-             output_tasks_file,
-             time_range,
+             task_description_file,
              no_qsub,
              tag):
-    if not output_tasks_file:
-        raise click.MissingParameter("Missing mandatory option '--save-tasks <file>'")
-    output_tasks_file = Path(output_tasks_file).absolute()
+    task_description = _read_task_description(task_description_file)
+    task_time: datetime = task_description.task_dt
 
-    if not app_config:
-        raise click.MissingParameter("Missing mandatory option '--app-config <file>'")
+    app_config = task_description.parameters.config_path
+    config = paths.read_document(app_config)
+    config['task_timestamp'] = int(task_time.timestamp())
+    # TODO: This is only recording the name, not the path?
+    config['app_config_file'] = Path(app_config).name
 
-    if not time_range:
-        raise click.MissingParameter("Missing mandatory option '--year'")
+    config = make_fc_config(index, config)
+    tasks = make_fc_tasks(index, config, query=task_description.query)
 
-    config, tasks = task_app.load_config(index, app_config, make_fc_config, make_fc_tasks, time_range=time_range)
+    num_tasks_saved = task_app.save_tasks(
+        config, tasks,
+        task_description.parameters.task_serialisation_path
+    )
 
-    num_tasks_saved = task_app.save_tasks(config, tasks, output_tasks_file)
     _LOG.info('Tag: %s', tag)
     _LOG.info('Found %d tasks', num_tasks_saved)
     if not num_tasks_saved:
@@ -324,8 +350,6 @@ def generate(index,
     if no_qsub:
         _LOG.info('Quitting early as requested')
         return 0
-
-    log_path = _get_output_log_folder(config)
 
     qsub = QSubLauncher(norm_qsub_params(
         {'project': project,
@@ -341,7 +365,7 @@ def generate(index,
 
     ret_code, qsub_stdout = qsub('run',
                                  '-v', '-v',
-                                 '--load-tasks', str(output_tasks_file),
+                                 '--task-description', str(task_description_file),
                                  '--celery', 'pbs-launch',
                                  '--tag', tag)
 
@@ -349,8 +373,18 @@ def generate(index,
     return ret_code
 
 
+def _read_task_description(task_description_file: Path) -> TaskDescription:
+    d = paths.read_document(task_description_file)
+    raise NotImplementedError("TODO")
+
+
 @cli.command(help='Actually process generated task file')
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
+@click.option(
+    '--task-description', 'task_description_file', help='',
+    required=True,
+    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
+)
 @with_qsub_runner()
 @task_app.load_tasks_option
 @tag_option
@@ -360,12 +394,15 @@ def generate(index,
 def run(index,
         dry_run,
         tag,
+        task_description_file: str,
         qsub: QSubLauncher,
         runner: TaskRunner,
         input_tasks_file=None,
         *args, **kwargs):
     _LOG.info('Starting Fractional Cover processing...')
     _LOG.info('Tag: %r', tag)
+
+    task_description = _read_task_description(Path(task_description_file))
 
     if not input_tasks_file:
         raise click.BadArgumentUsage("No input tasks file given")
@@ -380,7 +417,7 @@ def run(index,
     process_func = partial(process_result, index)
 
     try:
-        runner(tasks, task_func, process_func)
+        runner(task_description, tasks, task_func, process_func)
         _LOG.info("Runner finished normally, triggering shutdown.")
     finally:
         runner.stop()
