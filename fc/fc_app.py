@@ -27,8 +27,8 @@ from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
 from digitalearthau import paths, serialise
-from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params, TaskRunner, TaskDescription, \
-    TaskAppParameters
+from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params, TaskRunner
+from digitalearthau.runners.model import TaskAppState, TaskDescription, DefaultJobParameters
 from fc.fractional_cover import fractional_cover
 from datacube.index._api import Index
 
@@ -264,21 +264,26 @@ def submit(index: Index,
     app_config_path = Path(app_config).resolve()
     app_config = paths.read_document(app_config_path)
 
+    output_type = app_config['output_type']
+    source_type = app_config['source_type']
     work_path = paths.get_product_work_directory(
-        output_product=app_config['output_type'],
+        output_product=output_type,
         time=task_datetime
     )
 
     task_description = TaskDescription(
-        type_="fc.run",
+        type_="fc",
         task_dt=task_datetime,
         events_path=work_path.joinpath('events'),
         logs_path=work_path.joinpath('logs'),
-        # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time?
-        query=Query(index=index, time=time_range).search_terms,
-
+        parameters=DefaultJobParameters(
+            # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
+            query=Query(index=index, time=time_range).search_terms,
+            source_types=[source_type],
+            output_types=[output_type],
+        ),
         # Task-app framework
-        parameters=TaskAppParameters(
+        runtime_state=TaskAppState(
             config_path=app_config_path,
             task_serialisation_path=work_path.joinpath('generated-tasks.pickle'),
         )
@@ -324,18 +329,18 @@ def generate(index,
     task_description = _read_task_description(task_description_file)
     task_time: datetime = task_description.task_dt
 
-    app_config = task_description.parameters.config_path
+    app_config = task_description.runtime_state.config_path
     config = paths.read_document(app_config)
     config['task_timestamp'] = int(task_time.timestamp())
     # TODO: This is only recording the name, not the path?
     config['app_config_file'] = Path(app_config).name
 
     config = make_fc_config(index, config)
-    tasks = make_fc_tasks(index, config, query=task_description.query)
+    tasks = make_fc_tasks(index, config, query=task_description.parameters.query)
 
     num_tasks_saved = task_app.save_tasks(
         config, tasks,
-        task_description.parameters.task_serialisation_path
+        task_description.runtime_state.task_serialisation_path
     )
 
     _LOG.info('Tag: %s', tag)
@@ -403,7 +408,7 @@ def run(index,
 
     task_description = _read_task_description(Path(task_description_file))
 
-    config, tasks = task_app.load_tasks(task_description.parameters.task_serialisation_path)
+    config, tasks = task_app.load_tasks(task_description.runtime_state.task_serialisation_path)
 
     if dry_run:
         task_app.check_existing_files((task['filename'] for task in tasks))
