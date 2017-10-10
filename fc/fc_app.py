@@ -247,16 +247,6 @@ def submit(index: Index,
            tag: str):
     _LOG.info('Tag: %s', tag)
 
-    qsub = QSubLauncher(norm_qsub_params(
-        {'project': project,
-         'queue': queue,
-         'name': 'fc-generate-{}'.format(tag),
-         'mem': '4G',
-         'noask': True,
-         'wd': True,
-         'ncpus': 1,
-         'walltime': '1h'}))
-
     task_datetime = datetime.utcnow().replace(tzinfo=tz.tzutc())
 
     app_config_path = Path(app_config).resolve()
@@ -294,6 +284,20 @@ def submit(index: Index,
     task_description_path = work_path.joinpath('task-description.json')
     serialise.dump_structure(task_description_path, task_description)
 
+    qsub = QSubLauncher(norm_qsub_params({
+        'project': project,
+        'queue': queue,
+        'name': 'fc-generate-{}'.format(tag),
+        'mem': '4G',
+        'noask': True,
+        'wd': True,
+        'ncpus': 1,
+        'walltime': '1h',
+
+        'umask': 33,
+        'stdout': task_description.logs_path.joinpath('generate-head.out.log'),
+        'stderr': task_description.logs_path.joinpath('generate-head.err.log')
+    }))
     ret_code, qsub_stdout = qsub('generate',
                                  '-v', '-v',
                                  '--project', project,
@@ -364,7 +368,10 @@ def generate(index,
         'noask': True,
         'nodes': nodes,
         'walltime': walltime,
-        # TODO: Add stdout/stderr from log_path
+
+        'umask': 33,
+        'stdout': task_description.logs_path.joinpath('run-head.out.log'),
+        'stderr': task_description.logs_path.joinpath('run-head.err.log')
     }))
 
     ret_code, qsub_stdout = qsub('run',
