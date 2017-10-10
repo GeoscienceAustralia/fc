@@ -268,27 +268,28 @@ def submit(index: Index,
         output_product=app_config['output_type'],
         time=task_datetime
     )
-    work_path.mkdir(parents=True, exist_ok=False)
 
-    task_description_path = work_path.joinpath('task-description.json')
+    task_description = TaskDescription(
+        type_="fc.run",
+        task_dt=task_datetime,
+        events_path=work_path.joinpath('events'),
+        logs_path=work_path.joinpath('logs'),
+        # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time?
+        query=Query(index=index, time=time_range).search_terms,
 
-    serialise.dump_structure(
-        task_description_path,
-        TaskDescription(
-            type_="fc.run",
-            task_dt=task_datetime,
-            events_path=work_path.joinpath('events'),
-            logs_path=work_path.joinpath('logs'),
-            # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time?
-            query=Query(index=index, time=time_range).search_terms,
-
-            # Task-app framework
-            parameters=TaskAppParameters(
-                config_path=app_config_path,
-                task_serialisation_path=work_path.joinpath('generated-tasks.pickle'),
-            )
+        # Task-app framework
+        parameters=TaskAppParameters(
+            config_path=app_config_path,
+            task_serialisation_path=work_path.joinpath('generated-tasks.pickle'),
         )
     )
+
+    work_path.mkdir(parents=True, exist_ok=False)
+    task_description.logs_path.mkdir(parents=True, exist_ok=False)
+    task_description.events_path.mkdir(parents=True, exist_ok=False)
+
+    task_description_path = work_path.joinpath('task-description.json')
+    serialise.dump_structure(task_description_path, task_description)
 
     ret_code, qsub_stdout = qsub('generate',
                                  '-v', '-v',
