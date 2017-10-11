@@ -258,7 +258,7 @@ def submit(index: Index,
         output_product=output_type,
         time=task_datetime
     )
-
+    # TODO: most of this task_description->qsub setup code can become a common function
     task_description = TaskDescription(
         type_="fc",
         task_dt=task_datetime,
@@ -277,7 +277,6 @@ def submit(index: Index,
         )
     )
 
-    work_path.mkdir(parents=True, exist_ok=False)
     task_description.logs_path.mkdir(parents=True, exist_ok=False)
     task_description.events_path.mkdir(parents=True, exist_ok=False)
 
