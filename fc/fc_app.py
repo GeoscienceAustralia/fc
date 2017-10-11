@@ -5,16 +5,15 @@ import logging
 import os
 import sys
 from copy import deepcopy
+from datetime import datetime
 from functools import partial
 from math import ceil
 from pathlib import Path
 from time import time as time_now
+from typing import Tuple
 
 import click
-from datetime import datetime
-from dateutil import tz
 from pandas import to_datetime
-from typing import Tuple
 
 from datacube.api.grid_workflow import GridWorkflow
 from datacube.api.query import Query
@@ -26,8 +25,9 @@ from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
 from digitalearthau import paths, serialise
-from digitalearthau.qsub import QSubLauncher, with_qsub_runner, norm_qsub_params, TaskRunner
-from digitalearthau.runners.model import TaskAppState, TaskDescription, DefaultJobParameters
+from digitalearthau.qsub import QSubLauncher, with_qsub_runner, TaskRunner
+from digitalearthau.runners.model import TaskDescription
+from digitalearthau.runners.util import submit_subjob, init_task_app
 from fc.fractional_cover import fractional_cover
 
 _LOG = logging.getLogger('agdc-fc')
@@ -234,6 +234,8 @@ def estimate_job_size(num_tasks):
 @click.option('--year', 'time_range',
               callback=task_app.validate_year,
               help='Limit the process to a particular year')
+@click.option('--no-qsub', is_flag=True, default=False,
+              help="Skip submitting job")
 @tag_option
 @task_app.app_config_option
 @ui.config_option
@@ -243,74 +245,51 @@ def submit(index: Index,
            app_config: str,
            project: str,
            queue: str,
+           no_qsub: bool,
            time_range: Tuple[datetime, datetime],
            tag: str):
     _LOG.info('Tag: %s', tag)
-
-    task_datetime = datetime.utcnow().replace(tzinfo=tz.tzutc())
 
     app_config_path = Path(app_config).resolve()
     app_config = paths.read_document(app_config_path)
 
     output_type = app_config['output_type']
     source_type = app_config['source_type']
-    work_path = paths.get_product_work_directory(
-        output_product=output_type,
-        time=task_datetime
+
+    task_description, task_description_path = init_task_app(
+        job_type="fc",
+        source_types=[source_type],
+        output_types=[output_type],
+        datacube_query_args=Query(index=index, time=time_range).search_terms,
+        app_config_path=app_config_path,
+        pbs_project=project,
+        pbs_queue=queue
     )
-    # TODO: most of this task_description->qsub setup code can become a common function
-    task_description = TaskDescription(
-        type_="fc",
-        task_dt=task_datetime,
-        events_path=work_path.joinpath('events'),
-        logs_path=work_path.joinpath('logs'),
-        parameters=DefaultJobParameters(
-            # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
-            query=Query(index=index, time=time_range).search_terms,
-            source_types=[source_type],
-            output_types=[output_type],
-        ),
-        # Task-app framework
-        runtime_state=TaskAppState(
-            config_path=app_config_path,
-            task_serialisation_path=work_path.joinpath('generated-tasks.pickle'),
+    _LOG.info("Created task description: %s", task_description_path)
+
+    if no_qsub:
+        _LOG.info('Skipping submission due to --no-qsub')
+        return 0
+
+    job_id = submit_subjob(
+        name='generate',
+        task_description=task_description,
+        command=[
+            'generate', '-v', '-v',
+            '--task-description', str(task_description_path),
+            '--tag', tag
+        ],
+        qsub_params=dict(
+            mem='4G',
+            wd=True,
+            ncpus=1,
+            walltime='1h',
+            name='fc-generate-{}'.format(tag)
         )
     )
 
-    task_description.logs_path.mkdir(parents=True, exist_ok=False)
-    task_description.events_path.mkdir(parents=True, exist_ok=False)
-
-    task_description_path = work_path.joinpath('task-description.json')
-    serialise.dump_structure(task_description_path, task_description)
-
-    qsub = QSubLauncher(norm_qsub_params({
-        'project': project,
-        'queue': queue,
-        'name': 'fc-generate-{}'.format(tag),
-        'mem': '4G',
-        'noask': True,
-        'wd': True,
-        'ncpus': 1,
-        'walltime': '1h',
-
-        'umask': 33,
-        'stdout': task_description.logs_path.joinpath('generate-head.out.log'),
-        'stderr': task_description.logs_path.joinpath('generate-head.err.log')
-    }))
-    ret_code, qsub_stdout = qsub('generate',
-                                 '-v', '-v',
-                                 '--project', project,
-                                 '--queue', queue,
-                                 '--task-description', str(task_description_path),
-                                 '--tag', tag)
-
-    _LOG.info('Launched qsub: %d -> %s', ret_code, qsub_stdout)
-
 
 @cli.command(help='Generate Tasks into file and Queue PBS job to process them')
-@click.option('--project', '-P', default='u46')
-@click.option('--queue', '-q', default='normal',
-              type=click.Choice(['normal', 'express']))
 @click.option('--no-qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
 @click.option(
     '--task-description', 'task_description_file', help='',
@@ -322,22 +301,20 @@ def submit(index: Index,
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
 def generate(index: Index,
-             project: str,
-             queue: str,
              task_description_file: str,
              no_qsub: bool,
              tag: str):
+    _LOG.info('Tag: %s', tag)
+
     config, task_description = _read_config_and_description(index, Path(task_description_file))
 
-    tasks = make_fc_tasks(index, config, query=task_description.parameters.query)
-
     num_tasks_saved = task_app.save_tasks(
-        config, tasks,
+        config,
+        make_fc_tasks(index, config, query=task_description.parameters.query),
         task_description.runtime_state.task_serialisation_path
     )
-
-    _LOG.info('Tag: %s', tag)
     _LOG.info('Found %d tasks', num_tasks_saved)
+
     if not num_tasks_saved:
         _LOG.info("No tasks. Finishing.")
         sys.exit(0)
@@ -347,32 +324,28 @@ def generate(index: Index,
     _LOG.info('Will request %d nodes and %s time', nodes, walltime)
 
     if no_qsub:
-        _LOG.info('Quitting early as requested')
+        _LOG.info('Skipping submission due to --no-qsub')
         return 0
 
-    qsub = QSubLauncher(norm_qsub_params({
-        'project': project,
-        'queue': queue,
-        'name': 'fc-run-{}'.format(tag),
-        'mem': 'small',
-        'wd': True,
-        'noask': True,
-        'nodes': nodes,
-        'walltime': walltime,
+    job_id = submit_subjob(
+        name='run',
+        task_description=task_description,
 
-        'umask': 33,
-        'stdout': task_description.logs_path.joinpath('run-head.out.log'),
-        'stderr': task_description.logs_path.joinpath('run-head.err.log')
-    }))
-
-    ret_code, qsub_stdout = qsub('run',
-                                 '-v', '-v',
-                                 '--task-description', str(task_description_file),
-                                 '--celery', 'pbs-launch',
-                                 '--tag', tag)
-
-    _LOG.info('Launched qsub: %d -> %s', ret_code, qsub_stdout)
-    return ret_code
+        command=[
+            'run',
+            '-vv',
+            '--task-description', str(task_description_file),
+            '--celery', 'pbs-launch',
+            '--tag', tag,
+        ],
+        qsub_params=dict(
+            name='fc-run-{}'.format(tag),
+            mem='small',
+            wd=True,
+            nodes=nodes,
+            walltime=walltime
+        ),
+    )
 
 
 def _read_config_and_description(index: Index, task_description_path: Path) -> Tuple[dict, TaskDescription]:
