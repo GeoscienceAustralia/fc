@@ -56,7 +56,7 @@ deploy:
       skip_cleanup: true
       on:
           all_branches: true  # Let the condition below decide if the branch is to be deployed
-          condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # develop branch or tags
+          condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # master branch or tags
           repo: GeoscienceAustralia/fc
           python: "3.6"
 

@@ -242,7 +242,7 @@ def submit(app_config,
          'wd': True,
          'ncpus': 1,
          'walltime': '1h',
-         'extra_qsub_args': '-W umask=027'}))
+         'extra_qsub_args': ['-W', 'umask=027']}))
 
     app_config = Path(app_config).absolute()
     output_tasks_file = Path(output_tasks_file).absolute()
@@ -304,7 +304,8 @@ def generate(index,
          'wd': True,
          'noask': True,
          'nodes': nodes,
-         'walltime': walltime}))
+         'walltime': walltime,
+         'extra_qsub_args': ['-W', 'umask=027']}))
 
     ret_code, qsub_stdout = qsub('run',
                                  '-v', '-v',
