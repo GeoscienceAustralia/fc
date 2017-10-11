@@ -241,7 +241,8 @@ def submit(app_config,
          'noask': True,
          'wd': True,
          'ncpus': 1,
-         'walltime': '1h'}))
+         'walltime': '1h',
+         'extra_qsub_args': '-W umask=027'}))
 
     app_config = Path(app_config).absolute()
     output_tasks_file = Path(output_tasks_file).absolute()
