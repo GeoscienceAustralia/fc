@@ -253,13 +253,11 @@ def submit(index: Index,
     app_config_path = Path(app_config).resolve()
     app_config = paths.read_document(app_config_path)
 
-    output_type = app_config['output_type']
-    source_type = app_config['source_type']
-
     task_desc, task_path = init_task_app(
         job_type="fc",
-        source_types=[source_type],
-        output_types=[output_type],
+        source_types=[app_config['source_type']],
+        output_types=[app_config['output_type']],
+        # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
         datacube_query_args=Query(index=index, time=time_range).search_terms,
         app_config_path=app_config_path,
         pbs_project=project,
@@ -271,7 +269,7 @@ def submit(index: Index,
         _LOG.info('Skipping submission due to --no-qsub')
         return 0
 
-    job_id = submit_subjob(
+    submit_subjob(
         name='generate',
         task_desc=task_desc,
         command=[
@@ -320,14 +318,13 @@ def generate(index: Index,
         sys.exit(0)
 
     nodes, walltime = estimate_job_size(num_tasks_saved)
-
     _LOG.info('Will request %d nodes and %s time', nodes, walltime)
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
         return 0
 
-    job_id = submit_subjob(
+    submit_subjob(
         name='run',
         task_desc=task_desc,
 
@@ -389,7 +386,6 @@ def run(index,
     _LOG.info('Tag: %r', tag)
 
     task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
-
     config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
 
     if dry_run:
