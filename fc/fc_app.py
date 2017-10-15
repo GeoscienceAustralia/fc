@@ -33,7 +33,7 @@ from fc.fractional_cover import fractional_cover
 _LOG = logging.getLogger('agdc-fc')
 
 
-def make_fc_config(index, config, dry_run=False, **kwargs):
+def make_fc_config(index: Index, config, dry_run=False, **kwargs):
     source_type = index.products.get_by_name(config['source_type'])
     if not source_type:
         _LOG.error("Source DatasetType %s does not exist", config['source_type'])
@@ -204,6 +204,22 @@ def cli():
 def list_configs():
     for cfg in CONFIG_DIR.glob('*.yaml'):
         print(cfg.name)
+
+
+@cli.command(help='Add FC product definitions to the datacube')
+@click.argument(
+    'app-config-files',
+    nargs=-1,
+    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
+)
+@ui.config_option
+@ui.verbose_option
+@ui.pass_index(app_name=APP_NAME)
+def load_config(index, app_config_files):
+    for app_config_file in app_config_files:
+        click.secho(f"Loading {app_config_file}", bold=True)
+        app_config = paths.read_document(Path(app_config_file))
+        make_fc_config(index, app_config)
 
 
 def estimate_job_size(num_tasks):
