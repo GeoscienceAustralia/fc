@@ -1,3 +1,13 @@
+"""
+Entry point for producing Fractional Cover products.
+
+Specifically intended for running in the PBS job queue system at the NCI.
+
+The three entry points are:
+1. datacube-fc submit
+2. datacube-fc generate
+3. datacube-fc run
+"""
 from __future__ import absolute_import, print_function, division
 
 import errno
@@ -29,6 +39,7 @@ from digitalearthau.qsub import QSubLauncher, with_qsub_runner, TaskRunner
 from digitalearthau.runners.model import TaskDescription
 from digitalearthau.runners.util import submit_subjob, init_task_app
 from fc.fractional_cover import fractional_cover
+from fc import __version__
 
 _LOG = logging.getLogger('agdc-fc')
 
@@ -120,7 +131,7 @@ def get_app_metadata(config):
         'lineage': {
             'algorithm': {
                 'name': 'datacube-fc',
-                'version': config.get('version', 'unknown'),
+                'version': __version__,
                 'repo_url': 'https://github.com/GeoscienceAustralia/fc.git',
                 'parameters': {'configuration_file': config.get('app_config_file', 'unknown')}
             },
