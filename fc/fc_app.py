@@ -271,8 +271,8 @@ def submit(index: Index,
 
     task_desc, task_path = init_task_app(
         job_type="fc",
-        source_types=[app_config['source_type']],
-        output_types=[app_config['output_type']],
+        source_products=[app_config['source_type']],
+        output_products=[app_config['output_type']],
         # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
         datacube_query_args=Query(index=index, time=time_range).search_terms,
         app_config_path=app_config_path,
