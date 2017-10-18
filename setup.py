@@ -37,10 +37,10 @@ setup(
     long_description=open('README.rst', 'r').read(),
     license='Apache License 2.0',
     url='https://github.com/GeoscienceAustralia/fc',
-    author='Geoscience Australia',
     maintainer='Geoscience Australia',
     maintainer_email='earth.observation@ga.gov.au',
     packages=['fc', 'fc.unmix'],
+    data_files=[('fc/config/', ['config/ls5_fc_albers.yaml', 'config/ls7_fc_albers.yaml', 'config/ls8_fc_albers.yaml'])],
     install_requires=[
         'numpy',
         'numexpr',

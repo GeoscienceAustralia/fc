@@ -1,3 +1,6 @@
 include versioneer.py
 include fc/_version.py
 include README.rst
+
+# include the configuration files
+recursive-include config *
