@@ -70,3 +70,6 @@ docs/html/
 
 # Generated Documentation
 docs/dev/generate/
+
+# Built when python packaging
+MANIFEST
