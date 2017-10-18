@@ -207,6 +207,7 @@ tag_option = click.option('--tag', type=str,
 
 
 @click.group(help='Datacube Fractional Cover')
+@click.version_option(version=__version__)
 def cli():
     pass
 
