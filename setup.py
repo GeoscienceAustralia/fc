@@ -41,6 +41,9 @@ setup(
     maintainer_email='earth.observation@ga.gov.au',
     packages=['fc', 'fc.unmix'],
     data_files=[('fc/config/', ['config/ls5_fc_albers.yaml', 'config/ls7_fc_albers.yaml', 'config/ls8_fc_albers.yaml'])],
+    classifiers=[
+        'Programming Language :: Python :: 3.6',
+    ],
     install_requires=[
         'numpy',
         'numexpr',

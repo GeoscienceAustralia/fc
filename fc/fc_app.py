@@ -8,8 +8,6 @@ The three entry points are:
 2. datacube-fc generate
 3. datacube-fc run
 """
-from __future__ import absolute_import, print_function, division
-
 import errno
 import logging
 import os
@@ -109,12 +107,12 @@ def make_fc_tasks(index: Index,
                   config: dict,
                   query: dict,
                   **kwargs):
-    input_type = config['nbar_product']
+    input_product = config['nbar_product']
     output_product = config['fc_product']
 
     workflow = GridWorkflow(index, output_product.grid_spec)
-    tiles_in = workflow.list_tiles(product=input_type.name, **query)
-    _LOG.info(f"{len(tiles_in)} {input_type.name} tiles in {repr(query)}")
+    tiles_in = workflow.list_tiles(product=input_product.name, **query)
+    _LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
     tiles_out = workflow.list_tiles(product=output_product.name, **query)
     _LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
 
@@ -210,7 +208,7 @@ def cli():
 @cli.command(name='list', help='List installed Fractional Cover config files')
 def list_configs():
     for cfg in CONFIG_DIR.glob('*.yaml'):
-        print(cfg)
+        click.echo(cfg)
 
 
 @cli.command(help='Add FC product definitions to the datacube')
