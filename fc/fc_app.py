@@ -299,7 +299,7 @@ def submit(index: Index,
             '--tag', tag
         ],
         qsub_params=dict(
-            mem='4G',
+            mem='20G',
             wd=True,
             ncpus=1,
             walltime='1h',
