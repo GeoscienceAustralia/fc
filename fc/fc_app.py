@@ -196,9 +196,7 @@ def process_result(index: Index, result):
 APP_NAME = 'datacube-fc'
 
 # TODO: This is probably all messed up, depends how we get installed
-ROOT_DIR = Path(__file__).absolute().parent.parent
-CONFIG_DIR = ROOT_DIR / 'config'
-SCRIPT_DIR = ROOT_DIR / 'scripts'
+CONFIG_DIR = Path(__file__) / 'config'
 
 # pylint: disable=invalid-name
 tag_option = click.option('--tag', type=str,
@@ -215,7 +213,7 @@ def cli():
 @cli.command(name='list', help='List installed Fractional Cover config files')
 def list_configs():
     for cfg in CONFIG_DIR.glob('*.yaml'):
-        print(cfg.name)
+        print(cfg)
 
 
 @cli.command(help='Add FC product definitions to the datacube')
@@ -283,8 +281,8 @@ def submit(index: Index,
 
     task_desc, task_path = init_task_app(
         job_type="fc",
-        source_products=[app_config['source_type']],
-        output_products=[app_config['output_type']],
+        source_products=[app_config['source_product']],
+        output_products=[app_config['output_product']],
         # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
         datacube_query_args=Query(index=index, time=time_range).search_terms,
         app_config_path=app_config_path,

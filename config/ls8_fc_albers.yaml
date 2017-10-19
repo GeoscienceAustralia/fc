@@ -1,6 +1,5 @@
-source_type: ls8_nbart_albers
-output_type: ls8_fc_albers_staging
-version: ${version}
+source_product: ls8_nbart_albers
+output_product: ls8_fc_albers_staging
 
 description: Landsat 8 Fractional Cover 25 metre, 100km tile, Australian Albers Equal Area projection (EPSG:3577)
 product_type: fractional_cover
