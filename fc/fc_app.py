@@ -133,7 +133,7 @@ def get_app_metadata(config):
                 'name': APP_NAME,
                 'version': __version__,
                 'repo_url': 'https://github.com/GeoscienceAustralia/fc.git',
-                'parameters': {'configuration_file': str(config['app_config_file')}
+                'parameters': {'configuration_file': str(config['app_config_file'])}
             },
         }
     }
