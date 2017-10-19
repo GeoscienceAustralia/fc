@@ -43,8 +43,7 @@ from fc.fractional_cover import fractional_cover
 
 APP_NAME = 'datacube-fc'
 _LOG = logging.getLogger(__file__)
-CONFIG_DIR = Path(__file__) / 'config'
-
+CONFIG_DIR = Path(__file__).parent / 'config'
 
 
 def make_fc_config(index: Index, config, dry_run=False, **kwargs):
