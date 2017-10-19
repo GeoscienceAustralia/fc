@@ -38,32 +38,35 @@ from digitalearthau import paths, serialise
 from digitalearthau.qsub import QSubLauncher, with_qsub_runner, TaskRunner
 from digitalearthau.runners.model import TaskDescription
 from digitalearthau.runners.util import submit_subjob, init_task_app
-from fc.fractional_cover import fractional_cover
 from fc import __version__
+from fc.fractional_cover import fractional_cover
 
-_LOG = logging.getLogger('agdc-fc')
+APP_NAME = 'datacube-fc'
+_LOG = logging.getLogger(__file__)
+CONFIG_DIR = Path(__file__) / 'config'
+
 
 
 def make_fc_config(index: Index, config, dry_run=False, **kwargs):
-    source_type = index.products.get_by_name(config['source_type'])
-    if not source_type:
-        _LOG.error("Source DatasetType %s does not exist", config['source_type'])
+    source_product = index.products.get_by_name(config['source_product'])
+    if not source_product:
+        _LOG.error("Source Product %s does not exist", config['source_product'])
         return 1
 
-    output_type_definition = deepcopy(source_type.definition)
-    output_type_definition['name'] = config['output_type']
-    output_type_definition['managed'] = True
-    output_type_definition['description'] = config['description']
-    output_type_definition['metadata']['format'] = {'name': 'NetCDF'}
-    output_type_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
+    output_product_definition = deepcopy(source_product.definition)
+    output_product_definition['name'] = config['output_product']
+    output_product_definition['managed'] = True
+    output_product_definition['description'] = config['description']
+    output_product_definition['metadata']['format'] = {'name': 'NetCDF'}
+    output_product_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
 
-    output_type_definition['storage'] = {k: v for (k, v) in config['storage'].items()
-                                         if k in ('crs', 'tile_size', 'resolution', 'origin')}
+    output_product_definition['storage'] = {k: v for (k, v) in config['storage'].items()
+                                            if k in ('crs', 'tile_size', 'resolution', 'origin')}
 
     var_def_keys = {'name', 'dtype', 'nodata', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
 
-    output_type_definition['measurements'] = [{k: v for k, v in measurement.items() if k in var_def_keys}
-                                              for measurement in config['measurements']]
+    output_product_definition['measurements'] = [{k: v for k, v in measurement.items() if k in var_def_keys}
+                                                 for measurement in config['measurements']]
 
     chunking = config['storage']['chunking']
     chunking = [chunking[dim] for dim in config['storage']['dimension_order']]
@@ -77,17 +80,17 @@ def make_fc_config(index: Index, config, dry_run=False, **kwargs):
 
     config['variable_params'] = variable_params
 
-    output_type = DatasetType(source_type.metadata_type, output_type_definition)
+    output_product = DatasetType(source_product.metadata_type, output_product_definition)
 
     if not dry_run:
-        _LOG.info('Created DatasetType %s', output_type.name)
-        output_type = index.products.add(output_type)
+        _LOG.info('Created DatasetType %s', output_product.name)
+        output_product = index.products.add(output_product)
 
     if not os.access(config['location'], os.W_OK):
         _LOG.warning('Current user appears not have write access output location: %s', config['location'])
 
-    config['nbar_dataset_type'] = source_type
-    config['fc_dataset_type'] = output_type
+    config['nbar_product'] = source_product
+    config['fc_product'] = output_product
 
     if 'task_timestamp' not in config:
         config['task_timestamp'] = int(time_now())
@@ -107,14 +110,14 @@ def make_fc_tasks(index: Index,
                   config: dict,
                   query: dict,
                   **kwargs):
-    input_type = config['nbar_dataset_type']
-    output_type = config['fc_dataset_type']
+    input_type = config['nbar_product']
+    output_product = config['fc_product']
 
-    workflow = GridWorkflow(index, output_type.grid_spec)
+    workflow = GridWorkflow(index, output_product.grid_spec)
     tiles_in = workflow.list_tiles(product=input_type.name, **query)
     _LOG.info(f"{len(tiles_in)} {input_type.name} tiles in {repr(query)}")
-    tiles_out = workflow.list_tiles(product=output_type.name, **query)
-    _LOG.info(f"{len(tiles_out)} {output_type.name} tiles in {repr(query)}")
+    tiles_out = workflow.list_tiles(product=output_product.name, **query)
+    _LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
 
     def make_task(tile, **task_kwargs):
         task = dict(nbar=workflow.update_tile_lineage(tile))
@@ -130,7 +133,7 @@ def get_app_metadata(config):
     doc = {
         'lineage': {
             'algorithm': {
-                'name': 'datacube-fc',
+                'name': APP_NAME,
                 'version': __version__,
                 'repo_url': 'https://github.com/GeoscienceAustralia/fc.git',
                 'parameters': {'configuration_file': config.get('app_config_file', 'unknown')}
@@ -153,7 +156,7 @@ def do_fc_task(config, task):
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
     file_path = Path(task['filename'])
-    output_type = config['fc_dataset_type']
+    output_product = config['fc_product']
 
     if file_path.exists():
         raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
@@ -161,12 +164,12 @@ def do_fc_task(config, task):
     nbar_tile = task['nbar']
     nbar = GridWorkflow.load(nbar_tile, measurements)
 
-    output_measurements = config['fc_dataset_type'].measurements.values()
-    fc_out = make_fc_tile(nbar, output_measurements, config.get('sensor_regression_coefficients'))
+    output_measurements = config['fc_product'].measurements.values()
+    fc_dataset = make_fc_tile(nbar, output_measurements, config.get('sensor_regression_coefficients'))
 
     def _make_dataset(labels, sources):
         assert sources
-        dataset = make_dataset(product=output_type,
+        dataset = make_dataset(product=output_product,
                                sources=sources,
                                extent=nbar.geobox.extent,
                                center_time=labels['time'],
@@ -176,11 +179,11 @@ def do_fc_task(config, task):
         return dataset
 
     datasets = xr_apply(nbar_tile.sources, _make_dataset, dtype='O')
-    fc_out['dataset'] = datasets_to_doc(datasets)
+    fc_dataset['dataset'] = datasets_to_doc(datasets)
 
     write_dataset_to_netcdf(
-        dataset=fc_out,
-        filename=Path(file_path),
+        dataset=fc_dataset,
+        filename=file_path,
         global_attributes=global_attributes,
         variable_params=variable_params,
     )
@@ -192,11 +195,6 @@ def process_result(index: Index, result):
         index.datasets.add(dataset, sources_policy='skip')
         _LOG.info('Dataset %s added at %s', dataset.id, dataset.uris)
 
-
-APP_NAME = 'datacube-fc'
-
-# TODO: This is probably all messed up, depends how we get installed
-CONFIG_DIR = Path(__file__) / 'config'
 
 # pylint: disable=invalid-name
 tag_option = click.option('--tag', type=str,
@@ -379,10 +377,9 @@ def _make_config_and_description(index: Index, task_desc_path: Path) -> Tuple[di
 
     config = paths.read_document(app_config)
 
-    # TODO: This carries over the old behaviour of each load. Still necessary?
+    # TODO: This carries over the old behaviour of each load. Should probably be replaced with *tag*
     config['task_timestamp'] = int(task_time.timestamp())
-    # TODO: This is only recording the name, not the path?
-    config['app_config_file'] = Path(app_config).name
+    config['app_config_file'] = Path(app_config)
     config = make_fc_config(index, config)
 
     return config, task_desc
