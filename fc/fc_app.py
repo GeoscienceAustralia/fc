@@ -133,7 +133,7 @@ def get_app_metadata(config):
                 'name': APP_NAME,
                 'version': __version__,
                 'repo_url': 'https://github.com/GeoscienceAustralia/fc.git',
-                'parameters': {'configuration_file': config.get('app_config_file', 'unknown')}
+                'parameters': {'configuration_file': str(config['app_config_file')}
             },
         }
     }
@@ -223,7 +223,7 @@ def list_configs():
 def load_config(index, app_config_files):
     for app_config_file in app_config_files:
         click.secho(f"Loading {app_config_file}", bold=True)
-        app_config = paths.read_document(Path(app_config_file))
+        app_config = paths.read_document(app_config_file)
         make_fc_config(index, app_config)
 
 
