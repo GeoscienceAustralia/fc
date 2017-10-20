@@ -228,7 +228,7 @@ def list_configs():
         click.echo(cfg)
 
 
-@cli.command(help='Add FC product definitions to the datacube')
+@cli.command(help='Validate and load FC product definitions in the datacube if needed')
 @click.argument(
     'app-config-files',
     nargs=-1,
@@ -237,8 +237,10 @@ def list_configs():
 @ui.config_option
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
-def load_config(index, app_config_files):
+def ensure(index, app_config_files):
     for app_config_file in app_config_files:
+        # TODO: Add more validation of config?
+
         click.secho(f"Loading {app_config_file}", bold=True)
         app_config = paths.read_document(app_config_file)
         in_product, out_product = _ensure_products(app_config, index)
