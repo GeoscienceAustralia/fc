@@ -1,3 +1,4 @@
+# coding=utf-8
 """
 Entry point for producing Fractional Cover products.
 
@@ -21,9 +22,10 @@ from time import time as time_now
 from typing import Tuple
 
 import click
+import xarray
 from pandas import to_datetime
 
-from datacube.api.grid_workflow import GridWorkflow
+from datacube.api.grid_workflow import GridWorkflow, Tile
 from datacube.api.query import Query
 from datacube.index._api import Index
 from datacube.model import DatasetType, GeoPolygon
@@ -44,55 +46,71 @@ _LOG = logging.getLogger(__file__)
 CONFIG_DIR = Path(__file__).parent / 'config'
 
 
-def make_fc_config(index: Index, config, dry_run=False, **kwargs):
-    source_product = index.products.get_by_name(config['source_product'])
-    if not source_product:
-        _LOG.error("Source Product %s does not exist", config['source_product'])
-        return 1
+def make_fc_config(index: Index, config: dict, dry_run=False, **kwargs):
+    if not os.access(config['location'], os.W_OK):
+        _LOG.warning('Current user appears not have write access output location: %s', config['location'])
 
+    source_product, output_product = _ensure_products(config, index, dry_run=dry_run)
+
+    # The input config has `source_product` and `output_product` fields which are names. Perhaps these should
+    # just replace them?
+    config['nbar_product'] = source_product
+    config['fc_product'] = output_product
+
+    config['variable_params'] = _build_variable_params(config)
+
+    if 'task_timestamp' not in config:
+        config['task_timestamp'] = int(time_now())
+
+    return config
+
+
+def _build_variable_params(config: dict) -> dict:
+    chunking = config['storage']['chunking']
+    chunking = [chunking[dim] for dim in config['storage']['dimension_order']]
+    _KEYS_TO_COPY = {'zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs'}
+    variable_params = {}
+    for mapping in config['measurements']:
+        measurment_name = mapping['name']
+        variable_params[measurment_name] = {k: v for k, v in mapping.items() if k in _KEYS_TO_COPY}
+        variable_params[measurment_name]['chunksizes'] = chunking
+    return variable_params
+
+
+def _ensure_products(app_config: dict, index: Index, dry_run=False) -> Tuple[DatasetType, DatasetType]:
+    source_product_name = app_config['source_product']
+    source_product = index.products.get_by_name(source_product_name)
+    if not source_product:
+        raise ValueError(f"Source Product {source_product_name} does not exist")
+
+    output_product = DatasetType(
+        source_product.metadata_type,
+        _create_output_definition(app_config, source_product)
+    )
+    if not dry_run:
+        _LOG.info('Built product %s. Adding to index.', output_product.name)
+        output_product = index.products.add(output_product)
+    return source_product, output_product
+
+
+def _create_output_definition(config: dict, source_product: DatasetType) -> dict:
     output_product_definition = deepcopy(source_product.definition)
     output_product_definition['name'] = config['output_product']
     output_product_definition['managed'] = True
     output_product_definition['description'] = config['description']
     output_product_definition['metadata']['format'] = {'name': 'NetCDF'}
     output_product_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
-
-    output_product_definition['storage'] = {k: v for (k, v) in config['storage'].items()
-                                            if k in ('crs', 'tile_size', 'resolution', 'origin')}
-
+    output_product_definition['storage'] = {
+        k: v for (k, v) in config['storage'].items()
+        if k in ('crs', 'tile_size', 'resolution', 'origin')
+    }
     var_def_keys = {'name', 'dtype', 'nodata', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
 
-    output_product_definition['measurements'] = [{k: v for k, v in measurement.items() if k in var_def_keys}
-                                                 for measurement in config['measurements']]
-
-    chunking = config['storage']['chunking']
-    chunking = [chunking[dim] for dim in config['storage']['dimension_order']]
-
-    var_param_keys = {'zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs'}
-    variable_params = {}
-    for mapping in config['measurements']:
-        varname = mapping['name']
-        variable_params[varname] = {k: v for k, v in mapping.items() if k in var_param_keys}
-        variable_params[varname]['chunksizes'] = chunking
-
-    config['variable_params'] = variable_params
-
-    output_product = DatasetType(source_product.metadata_type, output_product_definition)
-
-    if not dry_run:
-        _LOG.info('Created DatasetType %s', output_product.name)
-        output_product = index.products.add(output_product)
-
-    if not os.access(config['location'], os.W_OK):
-        _LOG.warning('Current user appears not have write access output location: %s', config['location'])
-
-    config['nbar_product'] = source_product
-    config['fc_product'] = output_product
-
-    if 'task_timestamp' not in config:
-        config['task_timestamp'] = int(time_now())
-
-    return config
+    output_product_definition['measurements'] = [
+        {k: v for k, v in measurement.items() if k in var_def_keys}
+        for measurement in config['measurements']
+    ]
+    return output_product_definition
 
 
 def get_filename(config, tile_index, sources):
@@ -111,19 +129,20 @@ def make_fc_tasks(index: Index,
     output_product = config['fc_product']
 
     workflow = GridWorkflow(index, output_product.grid_spec)
+
     tiles_in = workflow.list_tiles(product=input_product.name, **query)
     _LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
     tiles_out = workflow.list_tiles(product=output_product.name, **query)
     _LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
 
-    def make_task(tile, **task_kwargs):
-        task = dict(nbar=workflow.update_tile_lineage(tile))
-        task.update(task_kwargs)
-        return task
-
-    tasks = (make_task(tile, tile_index=key, filename=get_filename(config, tile_index=key, sources=tile.sources))
-             for key, tile in tiles_in.items() if key not in tiles_out)
-    return tasks
+    return (
+        dict(
+            nbar=workflow.update_tile_lineage(tile),
+            tile_index=key,
+            filename=get_filename(config, tile_index=key, sources=tile.sources)
+        )
+        for key, tile in tiles_in.items() if key not in tiles_out
+    )
 
 
 def get_app_metadata(config):
@@ -140,7 +159,7 @@ def get_app_metadata(config):
     return doc
 
 
-def make_fc_tile(nbar, measurements, regression_coefficients):
+def make_fc_tile(nbar: xarray.Dataset, measurements, regression_coefficients):
     input_tile = nbar.squeeze('time').drop('time')
     data = fractional_cover(input_tile, measurements, regression_coefficients)
     output_tile = unsqueeze_dataset(data, 'time', nbar.time.values[0])
@@ -148,8 +167,6 @@ def make_fc_tile(nbar, measurements, regression_coefficients):
 
 
 def do_fc_task(config, task):
-    measurements = ['green', 'red', 'nir', 'swir1', 'swir2']
-
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
     file_path = Path(task['filename'])
@@ -158,8 +175,8 @@ def do_fc_task(config, task):
     if file_path.exists():
         raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
 
-    nbar_tile = task['nbar']
-    nbar = GridWorkflow.load(nbar_tile, measurements)
+    nbar_tile: Tile = task['nbar']
+    nbar = GridWorkflow.load(nbar_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
 
     output_measurements = config['fc_product'].measurements.values()
     fc_dataset = make_fc_tile(nbar, output_measurements, config.get('sensor_regression_coefficients'))
@@ -224,7 +241,8 @@ def load_config(index, app_config_files):
     for app_config_file in app_config_files:
         click.secho(f"Loading {app_config_file}", bold=True)
         app_config = paths.read_document(app_config_file)
-        make_fc_config(index, app_config)
+        in_product, out_product = _ensure_products(app_config, index)
+        click.secho(f"Product {in_product.name} → {out_product.name}")
 
 
 def estimate_job_size(num_tasks):
