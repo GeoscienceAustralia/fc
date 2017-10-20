@@ -354,7 +354,7 @@ def generate(index: Index,
 
     if not num_tasks_saved:
         _LOG.info("No tasks. Finishing.")
-        sys.exit(0)
+        return 0
 
     nodes, walltime = estimate_job_size(num_tasks_saved)
     _LOG.info('Will request %d nodes and %s time', nodes, walltime)
