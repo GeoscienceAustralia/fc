@@ -65,14 +65,21 @@ def make_fc_config(index: Index, config: dict, dry_run=False, **kwargs):
     return config
 
 
+_MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs')
+
+
 def _build_variable_params(config: dict) -> dict:
     chunking = config['storage']['chunking']
     chunking = [chunking[dim] for dim in config['storage']['dimension_order']]
-    _KEYS_TO_COPY = {'zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs'}
+
     variable_params = {}
     for mapping in config['measurements']:
         measurment_name = mapping['name']
-        variable_params[measurment_name] = {k: v for k, v in mapping.items() if k in _KEYS_TO_COPY}
+        variable_params[measurment_name] = {
+            k: v
+            for k, v in mapping.items()
+            if k in _MEASUREMENT_KEYS_TO_COPY
+        }
         variable_params[measurment_name]['chunksizes'] = chunking
     return variable_params
 
