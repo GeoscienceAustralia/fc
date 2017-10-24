@@ -230,7 +230,7 @@ def load_config(index, app_config_files):
 def estimate_job_size(num_tasks):
     """ Translate num_tasks to number of nodes and walltime
     """
-    max_nodes = 25
+    max_nodes = 20
     cores_per_node = 16
     task_time_mins = 5
 
