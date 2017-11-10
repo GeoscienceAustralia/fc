@@ -214,6 +214,30 @@ The config file lists the output `location` and file_path_template``, as shown i
 
 So here the output files are saved to ``/g/data/fk4/datacube/002/LS5_TM_FC/<tile_index>/*.nc``
 
+License
+-------
+This repository is licensed under the Apache License 2.0. See the `LICENSE file <LICENSE>`_ in this repository for details.
+
+
+Contacts
+--------
+Geoscience Australia developers:
+
+**Joshua Sixsmith**
+joshua.sixsmith@ga.gov.au
+
+**Jeremy Hooke**
+jeremy.hooke@ga.gov.au
+
+**Damien Ayers**
+damien.ayers@ga.gov.au
+
+
+Algorithm developer:
+
+**Peter Scarth**
+peter.scarth@qld.gov.au
+
 
 .. |Build Status| image:: https://travis-ci.org/GeoscienceAustralia/fc.svg?branch=master
     :target: https://travis-ci.org/GeoscienceAustralia/fc
