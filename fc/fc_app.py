@@ -12,7 +12,6 @@ The three entry points are:
 import errno
 import logging
 import os
-import sys
 from copy import deepcopy
 from datetime import datetime
 from functools import partial
@@ -47,7 +46,9 @@ CONFIG_DIR = Path(__file__).parent / 'config'
 
 
 def make_fc_config(index: Index, config: dict, dry_run=False, **kwargs):
-    if not os.access(config['location'], os.W_OK):
+    if not os.path.exists(config['location']):
+        os.makedirs(config['location'])
+    elif not os.access(config['location'], os.W_OK):
         _LOG.warning('Current user appears not have write access output location: %s', config['location'])
 
     source_product, output_product = _ensure_products(config, index, dry_run=dry_run)
