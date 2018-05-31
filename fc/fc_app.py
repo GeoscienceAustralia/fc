@@ -284,7 +284,8 @@ def estimate_job_size(num_tasks):
               type=click.Choice(['normal', 'express']))
 @click.option('--year', 'time_range',
               callback=task_app.validate_year,
-              help='Limit the process to a particular year')
+              required=True,
+              help='Particular year to process')
 @click.option('--no-qsub', is_flag=True, default=False,
               help="Skip submitting job")
 @tag_option
