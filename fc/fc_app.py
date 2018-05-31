@@ -304,12 +304,17 @@ def submit(index: Index,
     app_config_path = Path(app_config).resolve()
     app_config = paths.read_document(app_config_path)
 
+    if not time_range or not all(time_range):
+        query_args = Query(index=index).search_terms
+    else:
+        query_args = Query(index=index, time=time_range).search_terms
+
     task_desc, task_path = init_task_app(
         job_type="fc",
         source_products=[app_config['source_product']],
         output_products=[app_config['output_product']],
         # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
-        datacube_query_args=Query(index=index, time=time_range).search_terms,
+        datacube_query_args=query_args,
         app_config_path=app_config_path,
         pbs_project=project,
         pbs_queue=queue
