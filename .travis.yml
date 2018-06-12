@@ -43,9 +43,7 @@ after_success:
     - coveralls
 
 before_deploy:
-    - pip install s3pypi
-    - python setup.py sdist --dist-dir dist/$TRAVIS_PYTHON_VERSION
-    - DEPLOY_PATH=$TRAVIS_REPO_SLUG/${TRAVIS_TAG:-$TRAVIS_BRANCH}  # eg GeoscienceAustralia/fc/master
+    - python setup.py sdist bdist_wheel
 
 deploy:
  - provider: s3
@@ -55,19 +53,13 @@ deploy:
    bucket: "datacube-core-deployment"
    region: "ap-southeast-2"
    local_dir: dist
-   upload_dir: $DEPLOY_PATH
+   upload_dir: fc
    skip_cleanup: true
    on:
        all_branches: true  # Let the condition below decide if the branch is to be deployed
        condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # master branch or tags
        repo: GeoscienceAustralia/fc
        python: "3.6"
- - provider: script
-   script: s3pypi --bucket datacube-core-deployment
-   on:
-        all_branches: true  # Let the condition below decide if the branch is to be deployed
-        condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # develop branch or tags
-        repo: GeoscienceAustralia/fc  # Don't attempt to deploy from forks
 
 notifications:
     slack:
