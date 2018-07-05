@@ -4,7 +4,10 @@ Setup
 
 This compiles all the Fortran extensions.
 """
+from __future__ import absolute_import
+
 import os
+import setuptools  # Must be imported before numpy.distutils to build binary wheels
 
 from numpy.distutils.core import Extension, setup, Command
 
