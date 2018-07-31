@@ -9,7 +9,8 @@ from __future__ import absolute_import
 import os
 import setuptools  # Must be imported before numpy.distutils to build binary wheels
 
-from numpy.distutils.core import Extension, setup, Command
+from distutils.command.sdist import sdist
+from numpy.distutils.core import Extension, setup, Command, numpy_cmdclass
 
 import versioneer
 
@@ -28,9 +29,10 @@ class PyTest(Command):
         errno = subprocess.call([sys.executable, 'runtests.py'])
         raise SystemExit(errno)
 
-
-my_cmdclass = versioneer.get_cmdclass()
+foo = {'sdist': sdist}
+my_cmdclass = versioneer.get_cmdclass(foo)
 my_cmdclass['test'] = PyTest
+#my_cmdclass['sdist'] = sdist # Make sure the sdist includes everything
 
 setup(
     name='fc',
