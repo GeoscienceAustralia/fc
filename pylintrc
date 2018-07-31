@@ -13,9 +13,9 @@ disable=no-self-use,
     fixme,
     no-value-for-parameter,
     file-ignored,
-    wrong-import-order
+    wrong-import-order,
+    inconsistent-return-statements
 
-enable=python3
 
 [BASIC]
 
