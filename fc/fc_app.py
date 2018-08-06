@@ -55,7 +55,7 @@ def make_fc_config(index: Index, config: dict, dry_run=False, **kwargs):
 
     # The input config has `source_product` and `output_product` fields which are names. Perhaps these should
     # just replace them?
-    config['nbar_product'] = source_product
+    config['nbart_product'] = source_product
     config['fc_product'] = output_product
 
     config['variable_params'] = _build_variable_params(config)
@@ -133,7 +133,7 @@ def make_fc_tasks(index: Index,
                   config: dict,
                   query: dict,
                   **kwargs):
-    input_product = config['nbar_product']
+    input_product = config['nbart_product']
     output_product = config['fc_product']
 
     workflow = GridWorkflow(index, output_product.grid_spec)
@@ -145,7 +145,7 @@ def make_fc_tasks(index: Index,
 
     return (
         dict(
-            nbar=workflow.update_tile_lineage(tile),
+            nbart=workflow.update_tile_lineage(tile),
             tile_index=key,
             filename=get_filename(config, tile_index=key, sources=tile.sources)
         )
@@ -167,10 +167,10 @@ def get_app_metadata(config):
     return doc
 
 
-def make_fc_tile(nbar: xarray.Dataset, measurements, regression_coefficients):
-    input_tile = nbar.squeeze('time').drop('time')
+def make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
+    input_tile = nbart.squeeze('time').drop('time')
     data = fractional_cover(input_tile, measurements, regression_coefficients)
-    output_tile = unsqueeze_dataset(data, 'time', nbar.time.values[0])
+    output_tile = unsqueeze_dataset(data, 'time', nbart.time.values[0])
     return output_tile
 
 
@@ -183,24 +183,24 @@ def do_fc_task(config, task):
     if file_path.exists():
         raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
 
-    nbar_tile: Tile = task['nbar']
-    nbar = GridWorkflow.load(nbar_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
+    nbart_tile: Tile = task['nbart']
+    nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
 
     output_measurements = config['fc_product'].measurements.values()
-    fc_dataset = make_fc_tile(nbar, output_measurements, config.get('sensor_regression_coefficients'))
+    fc_dataset = make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
 
     def _make_dataset(labels, sources):
         assert sources
         dataset = make_dataset(product=output_product,
                                sources=sources,
-                               extent=nbar.geobox.extent,
+                               extent=nbart.geobox.extent,
                                center_time=labels['time'],
                                uri=file_path.absolute().as_uri(),
                                app_info=get_app_metadata(config),
-                               valid_data=GeoPolygon.from_sources_extents(sources, nbar.geobox))
+                               valid_data=GeoPolygon.from_sources_extents(sources, nbart.geobox))
         return dataset
 
-    datasets = xr_apply(nbar_tile.sources, _make_dataset, dtype='O')
+    datasets = xr_apply(nbart_tile.sources, _make_dataset, dtype='O')
     fc_dataset['dataset'] = datasets_to_doc(datasets)
 
     write_dataset_to_netcdf(
