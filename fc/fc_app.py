@@ -45,13 +45,17 @@ _LOG = logging.getLogger(__file__)
 CONFIG_DIR = Path(__file__).parent / 'config'
 
 
-def make_fc_config(index: Index, config: dict, dry_run=False, **kwargs):
+def _make_fc_config(index: Index, config: dict, dry_run):
+    """
+    Refine output fc configuration file. Before returning the updated file,
+    ensure that the products exist for the given FC config.
+    """
     if not os.path.exists(config['location']):
         os.makedirs(config['location'])
     elif not os.access(config['location'], os.W_OK):
         _LOG.warning('Current user appears not have write access output location: %s', config['location'])
 
-    source_product, output_product = _ensure_products(config, index, dry_run=dry_run)
+    source_product, output_product = _ensure_products(config, index, dry_run)
 
     # The input config has `source_product` and `output_product` fields which are names. Perhaps these should
     # just replace them?
@@ -75,28 +79,28 @@ def _build_variable_params(config: dict) -> dict:
 
     variable_params = {}
     for mapping in config['measurements']:
-        measurment_name = mapping['name']
-        variable_params[measurment_name] = {
+        measurement_name = mapping['name']
+        variable_params[measurement_name] = {
             k: v
             for k, v in mapping.items()
             if k in _MEASUREMENT_KEYS_TO_COPY
         }
-        variable_params[measurment_name]['chunksizes'] = chunking
+        variable_params[measurement_name]['chunksizes'] = chunking
     return variable_params
 
 
-def _ensure_products(app_config: dict, index: Index, dry_run=False) -> Tuple[DatasetType, DatasetType]:
+def _ensure_products(app_config: dict, index: Index, dry_run: bool) -> Tuple[DatasetType, DatasetType]:
     source_product_name = app_config['source_product']
     source_product = index.products.get_by_name(source_product_name)
     if not source_product:
-        raise ValueError(f"Source Product {source_product_name} does not exist")
+        raise ValueError(f"Source product {source_product_name} does not exist")
 
     output_product = DatasetType(
         source_product.metadata_type,
         _create_output_definition(app_config, source_product)
     )
     if not dry_run:
-        _LOG.info('Built product %s. Adding to index.', output_product.name)
+        _LOG.info('Add the output product definition for %s in the database.', output_product.name)
         output_product = index.products.add(output_product)
     return source_product, output_product
 
@@ -118,10 +122,12 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
         {k: v for k, v in measurement.items() if k in var_def_keys}
         for measurement in config['measurements']
     ]
+    # Validate the output product definition
+    DatasetType.validate(output_product_definition)
     return output_product_definition
 
 
-def get_filename(config, tile_index, sources):
+def _get_filename(config, tile_index, sources):
     file_path_template = str(Path(config['location'], config['file_path_template']))
     return file_path_template.format(tile_index=tile_index,
                                      start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
@@ -129,10 +135,16 @@ def get_filename(config, tile_index, sources):
                                      version=config['task_timestamp'])
 
 
-def make_fc_tasks(index: Index,
-                  config: dict,
-                  query: dict,
-                  **kwargs):
+def _make_fc_tasks(index: Index,
+                   config: dict,
+                   query: dict):
+    """
+    Generate an iterable of 'tasks', matching the provided filter parameters.
+    Tasks can be generated for:
+    - all of time
+    - 1 particular year
+    - a range of years
+    """
     input_product = config['nbart_product']
     output_product = config['fc_product']
 
@@ -147,13 +159,13 @@ def make_fc_tasks(index: Index,
         dict(
             nbart=workflow.update_tile_lineage(tile),
             tile_index=key,
-            filename=get_filename(config, tile_index=key, sources=tile.sources)
+            filename=_get_filename(config, tile_index=key, sources=tile.sources)
         )
         for key, tile in tiles_in.items() if key not in tiles_out
     )
 
 
-def get_app_metadata(config):
+def _get_app_metadata(config):
     doc = {
         'lineage': {
             'algorithm': {
@@ -167,14 +179,21 @@ def get_app_metadata(config):
     return doc
 
 
-def make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
+def _make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
     input_tile = nbart.squeeze('time').drop('time')
     data = fractional_cover(input_tile, measurements, regression_coefficients)
     output_tile = unsqueeze_dataset(data, 'time', nbart.time.values[0])
     return output_tile
 
 
-def do_fc_task(config, task):
+def _do_fc_task(config, task):
+    """
+    Load data, run WOFS algorithm, attach metadata, and write output.
+    :param dict config: Config object
+    :param dict task: Dictionary of tasks
+    :return: Dataset objects representing the generated data that can be added to the index
+    :rtype: list(datacube.model.Dataset)
+    """
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
     file_path = Path(task['filename'])
@@ -187,7 +206,7 @@ def do_fc_task(config, task):
     nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
 
     output_measurements = config['fc_product'].measurements.values()
-    fc_dataset = make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
+    fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
 
     def _make_dataset(labels, sources):
         assert sources
@@ -196,7 +215,7 @@ def do_fc_task(config, task):
                                extent=nbart.geobox.extent,
                                center_time=labels['time'],
                                uri=file_path.absolute().as_uri(),
-                               app_info=get_app_metadata(config),
+                               app_info=_get_app_metadata(config),
                                valid_data=GeoPolygon.from_sources_extents(sources, nbart.geobox))
         return dataset
 
@@ -212,7 +231,7 @@ def do_fc_task(config, task):
     return datasets
 
 
-def process_result(index: Index, result):
+def _process_result(index: Index, result):
     for dataset in result.values:
         index.datasets.add(dataset, sources_policy='skip')
         _LOG.info('Dataset %s added at %s', dataset.id, dataset.uris)
@@ -227,11 +246,25 @@ tag_option = click.option('--tag', type=str,
 @click.group(help='Datacube Fractional Cover')
 @click.version_option(version=__version__)
 def cli():
+    """
+    Instantiate a click 'Datacube fractional cover' group object to register the following sub-commands for
+    different bits of FC processing:
+         1) list_configs
+         2) ensure_products
+         3) submit
+         4) generate
+         5) run
+    :return: None
+    """
     pass
 
 
 @cli.command(name='list', help='List installed Fractional Cover config files')
 def list_configs():
+    """
+     List installed FC config files
+    :return: None
+    """
     for cfg in CONFIG_DIR.glob('*.yaml'):
         click.echo(cfg)
 
@@ -239,25 +272,28 @@ def list_configs():
 @cli.command(
     help="Ensure the products exist for the given FC config, creating them if necessary."
 )
-@click.argument(
-    'app-config-files',
-    nargs=-1,
-    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
-)
+@click.option('--app-config-file', help='App configuration file',
+              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False),
+              required=True)
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Check product definition without modifying the database')
 @ui.config_option
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
-def ensure_products(index, app_config_files):
-    for app_config_file in app_config_files:
-        # TODO: Add more validation of config?
+def ensure_products(index, app_config_file, dry_run):
+    """
+    Ensure the products exist for the given FC config, creating them if necessary.
+    If dry run is disabled, the validated output product definition will be added to the database.
+    """
+    # TODO: Add more validation of config?
+    click.secho(f"Loading {app_config_file}", bold=True)
+    app_config = paths.read_document(app_config_file)
+    _, out_product = _ensure_products(app_config, index, dry_run)
+    click.secho(f"Output product definition for {out_product.name} product exits in the database for the given "
+                f"FC input config file")
 
-        click.secho(f"Loading {app_config_file}", bold=True)
-        app_config = paths.read_document(app_config_file)
-        in_product, out_product = _ensure_products(app_config, index)
-        click.secho(f"Product {in_product.name} → {out_product.name}")
 
-
-def estimate_job_size(num_tasks):
+def _estimate_job_size(num_tasks):
     """ Translate num_tasks to number of nodes and walltime
     """
     max_nodes = 20
@@ -288,6 +324,7 @@ def estimate_job_size(num_tasks):
 @click.option('--no-qsub', is_flag=True, default=False,
               help="Skip submitting job")
 @tag_option
+@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @task_app.app_config_option
 @ui.config_option
 @ui.verbose_option
@@ -298,7 +335,31 @@ def submit(index: Index,
            queue: str,
            no_qsub: bool,
            time_range: Tuple[datetime, datetime],
-           tag: str):
+           tag: str,
+           dry_run: bool):
+    """
+    Kick off two stage PBS job
+
+    Stage 1 (Generate task file):
+        The task-app machinery loads a config file, from a path specified on the
+        command line, into a dict.
+
+        If dry is enabled, a dummy DatasetType is created for tasks generation without indexing
+        the product in the database.
+        If dry run is disabled, generate tasks into file and queue PBS job to process them.
+
+    Stage 2 (Run):
+        During normal run, following are performed:
+           1) Tasks shall be yielded for dispatch to workers.
+           2) Load data
+           3) Run FC algorithm
+           4) Attach metadata
+           5) Write output files and
+           6) Finally index the newly created FC output netCDF files
+
+        If dry run is enabled, application only prepares a list of output files to be created and does not
+        record anything in the database.
+    """
     _LOG.info('Tag: %s', tag)
 
     app_config_path = Path(app_config).resolve()
@@ -325,16 +386,21 @@ def submit(index: Index,
         _LOG.info('Skipping submission due to --no-qsub')
         return 0
 
+    # If dry run is not enabled just pass verbose option
+    dry_run_option = '--dry-run' if dry_run else '-v'
+
     submit_subjob(
         name='generate',
         task_desc=task_desc,
         command=[
-            'generate', '-v', '-v',
+            'generate', '-vv',
             '--task-desc', str(task_path),
-            '--tag', tag
+            '--tag', tag,
+            '--log-queries',
+            dry_run_option,
         ],
         qsub_params=dict(
-            mem='20G',
+            mem='31G',
             wd=True,
             ncpus=1,
             walltime='1h',
@@ -345,26 +411,31 @@ def submit(index: Index,
 
 @cli.command(help='Generate Tasks into file and Queue PBS job to process them')
 @click.option('--no-qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
-@click.option(
-    '--task-desc', 'task_desc_file', help='Task environment description file',
-    required=True,
-    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
-)
+@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
+              required=True,
+              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 @tag_option
+@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @ui.verbose_option
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
 def generate(index: Index,
              task_desc_file: str,
              no_qsub: bool,
-             tag: str):
+             tag: str,
+             dry_run: bool):
+    """
+    Generate Tasks into file and Queue PBS job to process them.
+
+    If dry run is enabled, do not add the new products to the database.
+    """
     _LOG.info('Tag: %s', tag)
 
-    config, task_desc = _make_config_and_description(index, Path(task_desc_file))
+    config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
 
     num_tasks_saved = task_app.save_tasks(
         config,
-        make_fc_tasks(index, config, query=task_desc.parameters.query),
+        _make_fc_tasks(index, config, query=task_desc.parameters.query),
         task_desc.runtime_state.task_serialisation_path
     )
     _LOG.info('Found %d tasks', num_tasks_saved)
@@ -373,12 +444,15 @@ def generate(index: Index,
         _LOG.info("No tasks. Finishing.")
         return 0
 
-    nodes, walltime = estimate_job_size(num_tasks_saved)
+    nodes, walltime = _estimate_job_size(num_tasks_saved)
     _LOG.info('Will request %d nodes and %s time', nodes, walltime)
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
         return 0
+
+    # If dry run is not enabled just pass verbose option
+    dry_run_option = '--dry-run' if dry_run else '-v'
 
     submit_subjob(
         name='run',
@@ -390,6 +464,7 @@ def generate(index: Index,
             '--task-desc', str(task_desc_file),
             '--celery', 'pbs-launch',
             '--tag', tag,
+            dry_run_option,
         ],
         qsub_params=dict(
             name='fc-run-{}'.format(tag),
@@ -401,7 +476,7 @@ def generate(index: Index,
     )
 
 
-def _make_config_and_description(index: Index, task_desc_path: Path) -> Tuple[dict, TaskDescription]:
+def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:
     task_desc = serialise.load_structure(task_desc_path, TaskDescription)
 
     task_time: datetime = task_desc.task_dt
@@ -412,18 +487,16 @@ def _make_config_and_description(index: Index, task_desc_path: Path) -> Tuple[di
     # TODO: This carries over the old behaviour of each load. Should probably be replaced with *tag*
     config['task_timestamp'] = int(task_time.timestamp())
     config['app_config_file'] = Path(app_config)
-    config = make_fc_config(index, config)
+    config = _make_fc_config(index, config, dry_run)
 
     return config, task_desc
 
 
-@cli.command(help='Actually process generated task file')
+@cli.command(help='Process generated task file')
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option(
-    '--task-desc', 'task_desc_file', help='Task environment description file',
-    required=True,
-    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
-)
+@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
+              required=True,
+              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 @with_qsub_runner()
 @task_app.load_tasks_option
 @tag_option
@@ -437,18 +510,21 @@ def run(index,
         qsub: QSubLauncher,
         runner: TaskRunner,
         *args, **kwargs):
-    _LOG.info('Starting Fractional Cover processing...')
-    _LOG.info('Tag: %r', tag)
-
+    """
+    Process generated task file. If dry run is enabled, only check for the existing files
+    """
     task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
     config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
 
     if dry_run:
+        _LOG.info('Starting Fractional Cover Dry Run...')
         task_app.check_existing_files((task['filename'] for task in tasks))
         return 0
 
-    task_func = partial(do_fc_task, config)
-    process_func = partial(process_result, index)
+    _LOG.info('Starting Fractional Cover processing...')
+    _LOG.info('Tag: %r', tag)
+    task_func = partial(_do_fc_task, config)
+    process_func = partial(_process_result, index)
 
     try:
         runner(task_desc, tasks, task_func, process_func)
