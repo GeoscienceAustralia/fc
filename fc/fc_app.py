@@ -188,7 +188,7 @@ def _make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
 
 def _do_fc_task(config, task):
     """
-    Load data, run WOFS algorithm, attach metadata, and write output.
+    Load data, run FC algorithm, attach metadata, and write output.
     :param dict config: Config object
     :param dict task: Dictionary of tasks
     :return: Dataset objects representing the generated data that can be added to the index
