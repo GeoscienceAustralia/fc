@@ -7,7 +7,7 @@ from __future__ import absolute_import, print_function
 import pytest
 import xarray as xr
 import datacube.utils.geometry
-
+from datacube.model import Measurement
 from fc.fractional_cover import fractional_cover
 
 
@@ -18,10 +18,10 @@ def test_fractional_cover(sr_filepath, fc_filepath):
     sr_dataset = open_dataset(sr_filepath)
 
     measurements = [
-        {'name': 'PV', 'dtype': 'int8', 'nodata': -1, 'units': 'percent'},
-        {'name': 'NPV', 'dtype': 'int8', 'nodata': -1, 'units': 'percent'},
-        {'name': 'BS', 'dtype': 'int8', 'nodata': -1, 'units': 'percent'},
-        {'name': 'UE', 'dtype': 'int8', 'nodata': -1, 'units': '1'}
+        Measurement(name='PV', dtype='int8', nodata=-1, units='percent'),
+        Measurement(name='NPV', dtype='int8', nodata=-1, units='percent'),
+        Measurement(name='BS', dtype='int8', nodata=-1, units='percent'),
+        Measurement(name='UE', dtype='int8', nodata=-1, units='1'),
     ]
 
     fc_dataset = fractional_cover(sr_dataset, measurements)
