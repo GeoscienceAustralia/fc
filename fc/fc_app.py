@@ -289,15 +289,15 @@ def list_configs():
 @ui.config_option
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
-def ensure_products(index, app_config_file, dry_run):
+def ensure_products(index, app_config, dry_run):
     """
     Ensure the products exist for the given FC config, creating them if necessary.
     If dry run is disabled, the validated output product definition will be added to the database.
     """
     # TODO: Add more validation of config?
-    click.secho(f"Loading {app_config_file}", bold=True)
-    app_config = paths.read_document(app_config_file)
-    _, out_product = _ensure_products(app_config, index, dry_run)
+    click.secho(f"Loading {app_config}", bold=True)
+    app_config_file = paths.read_document(app_config)
+    _, out_product = _ensure_products(app_config_file, index, dry_run)
     click.secho(f"Output product definition for {out_product.name} product exits in the database for the given "
                 f"FC input config file")
 
