@@ -78,16 +78,19 @@ Usage: ``datacube-fc submit [OPTIONS]``
 
 Options:
 
-* ``-q, --queue [normal|express]``       The queue to use, either ``normal`` or ``express``
-* ``-P, --project TEXT``                 The project to use
-* ``--year TEXT``                        Limit the process to a particular year
-* ``--no-qsub``                          Skip submitting job
-* ``--tag TEXT``                         Unique id for the job
-* ``--app-config PATH``                  Fractional Cover app configuration file
-* ``--dry-run``                          Do not record anything into the database
-* ``-C, --config, --config_file TEXT``   Datacube config file (by default uses the currently loaded AGDC module)
-* ``-v, --verbose``                      Use multiple times for more verbosity
-* ``--help``                             Show help message.
+* ``-q, --queue [normal|express]``                 The queue to use, either ``normal`` or ``express``
+* ``-P, --project TEXT``                           The project to use
+* ``--year TEXT``                                  Limit the process to a particular year
+* ``--no-qsub``                                    Skip submitting job
+* ``--tag TEXT``                                   Unique id for the job
+* ``--app-config PATH``                            Fractional Cover app configuration file
+* ``--dry-run``                                    Do not record anything into the database
+* ``-m, --email-options [a|b|e|n|ae|ab|be|abe]``   Send Email when execution is,
+                                                     [a = aborted | b = begins | e = ends | n = do not send email]
+* ``-M, --email-id TEXT``                          Email Recipient List
+* ``-C, --config, --config_file TEXT``             Datacube config file
+* ``-v, --verbose``                                Use multiple times for more verbosity
+* ``--help``                                       Show help message.
 
 Tracking progress
 -----------------
