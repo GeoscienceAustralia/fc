@@ -34,7 +34,7 @@ from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
 from digitalearthau import paths, serialise
-from digitalearthau.qsub import QSubLauncher, with_qsub_runner, TaskRunner, norm_qsub_params
+from digitalearthau.qsub import QSubLauncher, with_qsub_runner, TaskRunner
 from digitalearthau.runners.model import TaskDescription
 from digitalearthau.runners.util import submit_subjob, init_task_app
 from fc import __version__
@@ -419,7 +419,7 @@ def submit(index: Index,
         ],
         qsub_params=dict(
             name='fc-generate-{}'.format(tag),
-            mem='small',
+            mem='medium',
             wd=True,
             nodes=1,
             walltime='1h'
