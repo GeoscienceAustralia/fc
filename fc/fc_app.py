@@ -243,7 +243,7 @@ tag_option = click.option('--tag', type=str,
                           help='Unique id for the job')
 
 # pylint: disable=invalid-name
-pbs_email_options = click.option('--email-options', '-m', default='ae',
+pbs_email_options = click.option('--email-options', '-m', default='abe',
                                  type=click.Choice(['a', 'b', 'e', 'n', 'ae', 'ab', 'be', 'abe']),
                                  help='Send Email when execution is, \n'
                                  '[a = aborted | b = begins | e = ends | n = do not send email]')
@@ -280,8 +280,7 @@ def list_configs():
 
 
 @cli.command(name='ensure-products',
-             help="Ensure the products exist for the given FC config, creating them if necessary."
-)
+             help="Ensure the products exist for the given FC config, creating them if necessary.")
 @click.option('--app-config', help='App configuration file',
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False),
               required=True)
