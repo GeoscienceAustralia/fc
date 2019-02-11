@@ -27,10 +27,11 @@ from pandas import to_datetime
 from datacube.api.grid_workflow import GridWorkflow, Tile
 from datacube.api.query import Query
 from datacube.index._api import Index
-from datacube.model import DatasetType, GeoPolygon
+from datacube.model import DatasetType
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
-from datacube.storage.storage import write_dataset_to_netcdf
+from datacube.drivers.netcdf import write_dataset_to_netcdf
 from datacube.ui import click as ui
+from datacube.utils import geometry
 from datacube.ui import task_app
 from datacube.utils import unsqueeze_dataset
 from digitalearthau import paths, serialise
@@ -43,6 +44,13 @@ from fc.fractional_cover import fractional_cover
 APP_NAME = 'datacube-fc'
 _LOG = logging.getLogger(__file__)
 CONFIG_DIR = Path(__file__).parent / 'config'
+
+
+def polygon_from_sources_extents(sources, geobox):
+    sources_union = geometry.unary_union(source.extent.to_crs(geobox.crs) for source in sources)
+    valid_data = geobox.extent.intersection(sources_union)
+    resolution = min([abs(x) for x in geobox.resolution])
+    return valid_data.simplify(tolerance=resolution * 0.01)
 
 
 def _make_fc_config(index: Index, config: dict, dry_run):
@@ -216,7 +224,7 @@ def _do_fc_task(config, task):
                                center_time=labels['time'],
                                uri=file_path.absolute().as_uri(),
                                app_info=_get_app_metadata(config),
-                               valid_data=GeoPolygon.from_sources_extents(sources, nbart.geobox))
+                               valid_data=polygon_from_sources_extents(sources, nbart.geobox))
         return dataset
 
     datasets = xr_apply(nbart_tile.sources, _make_dataset, dtype='O')
