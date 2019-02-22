@@ -41,6 +41,11 @@ from digitalearthau.runners.util import submit_subjob, init_task_app
 from fc import __version__
 from fc.fractional_cover import fractional_cover
 
+from datacube.helpers import write_geotiff, DEFAULT_PROFILE
+
+import pickle
+
+
 APP_NAME = 'datacube-fc'
 _LOG = logging.getLogger(__file__)
 CONFIG_DIR = Path(__file__).parent / 'config'
@@ -236,6 +241,13 @@ def _do_fc_task(config, task):
         global_attributes=global_attributes,
         variable_params=variable_params,
     )
+    dataset_to_geotif_yaml(
+        dataset=fc_dataset,
+        filename=file_path,
+        global_attributes=global_attributes,
+        variable_params=variable_params,
+    )
+
     return datasets
 
 
@@ -565,6 +577,80 @@ def run(index,
         _LOG.info("Runner finished normally, triggering shutdown.")
     finally:
         runner.stop()
+
+## DSG edits
+@cli.command(help='Poke around the fc code base.')
+@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
+@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
+              required=True,
+              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
+@with_qsub_runner()
+@task_app.load_tasks_option
+@tag_option
+@ui.config_option
+@ui.verbose_option
+@ui.pass_index(app_name=APP_NAME)
+def mod(index,
+        dry_run: bool,
+        tag: str,
+        task_desc_file: str,
+        qsub: QSubLauncher,
+        runner: TaskRunner,
+        *args, **kwargs):
+    """
+    Process generated task file. If dry run is enabled, only check for the existing files
+    """
+    print ('into the void')
+
+    task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
+    config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
+
+    _LOG.info('Starting Fractional Cover processing...')
+    _LOG.info('Tag: %r', tag)
+    task_func = partial(_do_fc_task, config)
+
+    try:
+        runner(task_desc, tasks, task_func)
+        _LOG.info("Runner finished normally, triggering shutdown.")
+    finally:
+        runner.stop()
+
+def dataset_to_geotif_yaml(dataset, filename, global_attributes, variable_params):
+    """
+    This is what goes into write_dataset_to_netcdf
+           dataset=fc_dataset,
+        filename=file_path,
+        global_attributes=global_attributes,
+        variable_params=variable_params,
+
+    :return:
+    """
+    # print ('************   dataset     ******************')
+    # print(dataset)
+    # fileObject = open('dataset.pkl', 'wb')
+    # pickle.dump(dataset, fileObject)
+    # fileObject.close()
+    print ('************   filename     ******************')
+    print(filename)
+    print ('************   global_attributes     ******************')
+    print(global_attributes)
+    print ('************   variable_params     ******************')
+    print(variable_params)
+
+    for key in ['BS', 'PV', 'NPV', 'UE']:
+        base = 'helper_' + key
+        filename = base + '.tif'
+        profile = DEFAULT_PROFILE.copy()
+        print(profile)
+        # profile['photometric'] = 'MINIBLACK' # Default value gave warning
+        del profile['photometric']
+        slim_dataset = dataset[[key]]
+        attrs = slim_dataset[key].attrs
+        del attrs['crs']  # It's  format is poor
+        del attrs['units']  # It's  format is poor
+        profile.update(attrs)  # Mainly to get nodata in
+        slim_dataset[key] = dataset.data_vars[key].astype('int16', copy=True)
+        write_geotiff(filename, slim_dataset.isel(time=0), profile_override=profile)
 
 
 if __name__ == "__main__":
