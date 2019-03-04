@@ -5,10 +5,13 @@ Module
 from __future__ import absolute_import, print_function
 
 import pytest
+import os
+from datetime import datetime
 import xarray as xr
 import datacube.utils.geometry
 from datacube.model import Measurement
 from fc.fractional_cover import fractional_cover
+from fc.fc_app import _get_filename, filename2tif_names, all_files_exist
 
 
 def test_fractional_cover(sr_filepath, fc_filepath):
@@ -37,5 +40,46 @@ def test_fractional_cover(sr_filepath, fc_filepath):
 
 def open_dataset(file_path):
     ds = xr.open_dataset(file_path, mask_and_scale=False, drop_variables='crs')
-    ds.attrs['crs'] = datacube.utils.geometry.CRS('EPSG:32754')
+    ds.attrs['crs'] = datacube.utils.ge
+    ometry.CRS('EPSG:32754')
     return ds
+
+def test_get_filename():
+    start_time = datetime.strptime('Jun 1 2005  1:33PM', '%b %d %Y %I:%M%p')
+    end_time = datetime.strptime('Jun 1 2005  1:33PM', '%b %d %Y %I:%M%p')
+
+    class Object(object):
+        pass
+    sources = Object()
+    sources.time = Object()
+    sources.time.values = [start_time, end_time]
+    tile_index = ('A', 'B')
+    config = {}
+    config['location'] = '/g/dat'
+    config['file_path_template'] = '{tile_index[0]}_{measurement}.nc'
+    config['task_timestamp'] = 'version'
+
+
+    file_path = _get_filename(config, tile_index, sources)
+    print(file_path)
+
+def test_filename2tif_names():
+    bands = ['BS', 'PV']
+    base = 'yeah'
+    ext = '.tif'
+    filename = base + ext
+    filedic = filename2tif_names(filename, bands)
+    key = 'BS'
+    assert filedic[key] == base + '_' + key + ext
+
+def test_all_files_exist():
+    current = os.path.basename(__file__)
+    filenames = [current, 'this_isnt_.here']
+    assert not all_files_exist(filenames)
+    filenames = [current, current]
+    assert all_files_exist(filenames)
+
+    filenames_dict = {'a':current, 'c':current, 'b':'this_isnt_.here'}
+    assert not all_files_exist(filenames_dict.values())
+    filenames_dict = {'a':current, 'b':current}
+    assert all_files_exist(filenames_dict.values())

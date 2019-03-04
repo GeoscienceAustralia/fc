@@ -148,6 +148,7 @@ def _get_filename(config, tile_index, sources):
                                      version=config['task_timestamp'])
 
 
+
 def _make_fc_tasks(index: Index,
                    config: dict,
                    query: dict):
@@ -167,7 +168,6 @@ def _make_fc_tasks(index: Index,
     _LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
     tiles_out = workflow.list_tiles(product=output_product.name, **query)
     _LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
-
     return (
         dict(
             nbart=workflow.update_tile_lineage(tile),
@@ -207,13 +207,28 @@ def _do_fc_task(config, task):
     :return: Dataset objects representing the generated data that can be added to the index
     :rtype: list(datacube.model.Dataset)
     """
+
+    # pickle_out = open("config_dev_nc.pickle", "wb")
+    # pickle.dump(config, pickle_out)
+    # pickle_out.close()
+    # pickle_out = open("task_dev_nc.pickle", "wb")
+    # pickle.dump(task, pickle_out)
+    # pickle_out.close()
+
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
     file_path = Path(task['filename'])
     output_product = config['fc_product']
 
-    if file_path.exists():
+    base, ext = os.path.splitext(file_path)
+    if ext == '.tif':
+        filenames_dict = filename2tif_names(file_path, variable_params.keys())
+        if all_files_exist(filenames_dict.values()):
+            raise OSError(errno.EEXIST, 'All output files already exist ', str(filenames_dict.values()))
+    elif file_path.exists():
         raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+
+
 
     nbart_tile: Tile = task['nbart']
     nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
@@ -235,18 +250,21 @@ def _do_fc_task(config, task):
     datasets = xr_apply(nbart_tile.sources, _make_dataset, dtype='O')
     fc_dataset['dataset'] = datasets_to_doc(datasets)
 
-    write_dataset_to_netcdf(
-        dataset=fc_dataset,
-        filename=file_path,
-        global_attributes=global_attributes,
-        variable_params=variable_params,
-    )
-    dataset_to_geotif_yaml(
-        dataset=fc_dataset,
-        filename=file_path,
-        global_attributes=global_attributes,
-        variable_params=variable_params,
-    )
+    base, ext = os.path.splitext(file_path)
+    if ext == '.tif':
+        dataset_to_geotif_yaml(
+            dataset=fc_dataset,
+            filename=file_path,
+            global_attributes=global_attributes,
+            variable_params=variable_params,
+        )
+    else:
+        write_dataset_to_netcdf(
+            dataset=fc_dataset,
+            filename=file_path,
+            global_attributes=global_attributes,
+            variable_params=variable_params,
+        )
 
     return datasets
 
@@ -405,7 +423,7 @@ def submit(index: Index,
 
     task_desc, task_path = init_task_app(
         job_type="fc",
-        source_products=[app_config['source_product']],
+        source_pr_make_fc_config_make_fc_config_make_fc_configoducts=[app_config['source_product']],
         output_products=[app_config['output_product']],
         # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
         datacube_query_args=query_args,
@@ -615,7 +633,32 @@ def mod(index,
     finally:
         runner.stop()
 
-def dataset_to_geotif_yaml(dataset, filename, global_attributes, variable_params):
+def all_files_exist(filesnames):
+    isthere = [os.path.isfile(i) for i in filesnames]
+    return all(isthere)
+
+def filename2tif_names(filename, bands, sep='_'):
+    """
+    Turn one file name into serveral file names, one per band.
+    This turns a .tif filename into a dictionary of filenames,
+    the band as the key, with the band inserted into the file names.
+
+    :param filename:
+    :param bands: a list of bands/measurements
+    :return: filenames
+    """
+    base, ext = os.path.splitext(filename)
+    assert ext == '.tif'
+    filenames = {}
+    for band in bands:
+        filenames[band] = base + sep + band + ext
+    return filenames
+
+
+def dataset_to_geotif_yaml(dataset,
+                           filename=None,
+                           global_attributes=None,
+                           variable_params=None):
     """
     This is what goes into write_dataset_to_netcdf
            dataset=fc_dataset,
@@ -627,30 +670,33 @@ def dataset_to_geotif_yaml(dataset, filename, global_attributes, variable_params
     """
     # print ('************   dataset     ******************')
     # print(dataset)
-    # fileObject = open('dataset.pkl', 'wb')
-    # pickle.dump(dataset, fileObject)
-    # fileObject.close()
-    print ('************   filename     ******************')
-    print(filename)
-    print ('************   global_attributes     ******************')
-    print(global_attributes)
-    print ('************   variable_params     ******************')
-    print(variable_params)
+    # # fileObject = open('dataset.pkl', 'wb')
+    # # pickle.dump(dataset, fileObject)
+    # # fileObject.close()
+    # print ('************   filename     ******************')
+    # print(filename)
+    # print ('************   global_attributes     ******************')
+    # print(global_attributes)
+    # print ('************   variable_params     ******************')
+    # print(variable_params)
 
-    for key in ['BS', 'PV', 'NPV', 'UE']:
-        base = 'helper_' + key
-        filename = base + '.tif'
-        profile = DEFAULT_PROFILE.copy()
-        print(profile)
-        # profile['photometric'] = 'MINIBLACK' # Default value gave warning
-        del profile['photometric']
-        slim_dataset = dataset[[key]]
-        attrs = slim_dataset[key].attrs
+    bands = variable_params.keys()
+    filenames = filename2tif_names(filename, bands)
+
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
+
+    # with open('result.yml', 'w') as yaml_file:
+    #     yaml.dump(d, yaml_file, default_flow_style=False)
+
+    # Iterate over the bands
+    for key, bandfile in filenames.items():
+        slim_dataset = dataset[[key]] # create a one band dataset
+        attrs = slim_dataset[key].attrs.copy() # To get nodata in
         del attrs['crs']  # It's  format is poor
         del attrs['units']  # It's  format is poor
-        profile.update(attrs)  # Mainly to get nodata in
         slim_dataset[key] = dataset.data_vars[key].astype('int16', copy=True)
-        write_geotiff(filename, slim_dataset.isel(time=0), profile_override=profile)
+        write_geotiff(bandfile, slim_dataset.isel(time=0), profile_override=attrs)
 
 
 if __name__ == "__main__":
