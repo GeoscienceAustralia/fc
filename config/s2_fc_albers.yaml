@@ -5,41 +5,37 @@ description: Sentinel 2A Fractional Cover
 product_type: fractional_cover
 
 location: '/g/data/fk4/datacube/002/FC/'
-file_path_template: 'LS8_OLI_FC/{tile_index[0]}_{tile_index[1]}/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.nc'
-partial_ncml_path_template: 'LS8_OLI_FC/{tile_index[0]}_{tile_index[1]}/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}.ncml'
-ncml_path_template: 'LS8_OLI_FC/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}.ncml'
+file_path_template: 'S2_FC/{tile_index[0]}_{tile_index[1]}/S2_FC_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.nc'
 
 sensor_regression_coefficients:
+#  The coefficients is applied to band values in the 0-10,000 range, before it is scaled to a fraction
+#  This means the first coefficient has been also scaled when compared to the literature
   blue:
-    - -0.0022
+    - -22.0
     - 0.9551
   green:
-    - 0.0031
+    - 31.0
     - 1.0582
   red:
-    - 0.0064
+    - 64.0
     - 0.9871
   nir:
-    - 0.012
+    - 120.0
     - 1.0187
   swir1:
-    - 0.0079
+    - 79.0
     - 0.9528
   swir2:
-    - -0.0042
+    - -42.0
     - 0.9688
 
 global_attributes:
-  title: Fractional Cover 25 v3
+  title: Fractional Cover 10 v3
   summary: 'The Fractional Cover (FC) algorithm was developed by the Joint Remote
-    Sensing Research Program and is described in described in Scarth et al. (2010).
-    It has been implemented by Geoscience Australia for every observation from Landsat
-    Thematic Mapper (Landsat 5), Enhanced Thematic Mapper (Landsat 7) and Operational
-    Land Imager (Landsat 8) acquired since 1987. It is calculated from terrain corrected
-    surface reflectance (SR-NT_25_2.0.0).
+    Sensing Research Program and is described in described in Scarth et al. (2010)
+    for Landsat, and extended to Sentinel-2 as described in Flood (2017).
 
-
-    FC_25 provides a 25m scale fractional cover representation of the proportions
+    FC_10 provides a 10m scale fractional cover representation of the proportions
     of green vegetation, non-green vegetation, and bare surface cover across the Australian
     continent. The fractions are retrieved by inverting multiple linear regression
     estimates and using synthetic endmembers in a constrained non-negative least squares
@@ -93,7 +89,7 @@ global_attributes:
 
     The conversion of the algorithm to use Sentinel-2A is described in Flood (2017).
 
-    FC_25 was made possible by new scientific and technical capabilities, the collaborative framework established by
+    FC_10 was made possible by new scientific and technical capabilities, the collaborative framework established by
     the Terrestrial Ecosystem Research Network (TERN) through the National Collaborative Research Infrastructure
     Strategy (NCRIS), and collaborative effort between state and Commonwealth governments.
   references: |
@@ -112,8 +108,8 @@ storage:
           x: 100000.0
           y: 100000.0
   resolution:
-          x: 25
-          y: -25
+          x: 10
+          y: -10
   chunking:
       x: 200
       y: 200
