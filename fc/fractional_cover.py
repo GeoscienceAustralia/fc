@@ -5,6 +5,7 @@ import numexpr
 import xarray
 
 from datacube import Datacube
+from datacube.model import Measurement
 from datacube.storage.masking import valid_data_mask
 from datacube.utils import iter_slices
 
@@ -83,7 +84,7 @@ def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None)
 
         return output_data[i, :, :]
 
-    dataset = Datacube.create_storage({}, nbar_tile.geobox, measurements, data_func)
+    dataset = Datacube.create_storage({}, nbar_tile.geobox, [Measurement(**m_dict) for m_dict in m], data_func)
 
     return dataset
 
