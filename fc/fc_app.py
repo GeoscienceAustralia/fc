@@ -206,12 +206,17 @@ def _do_fc_task(config, task):
     variable_params = config['variable_params']
     file_path = Path(task['filename'])
     output_product = config['fc_product']
+    input_mapping = config.get('input_mapping')
 
     if file_path.exists():
         raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
 
     nbart_tile: Tile = task['nbart']
-    nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
+
+    requested_measurements = input_mapping.keys() if input_mapping else ['green', 'red', 'nir', 'swir1', 'swir2']
+    nbart = GridWorkflow.load(nbart_tile, requested_measurements)
+    if input_mapping:
+        nbart.rename(input_mapping)
 
     output_measurements = config['fc_product'].measurements.values()
     fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
