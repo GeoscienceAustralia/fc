@@ -9,6 +9,7 @@ The three entry points are:
 2. datacube-fc generate
 3. datacube-fc run
 """
+import yaml
 import errno
 import logging
 import os
@@ -651,12 +652,14 @@ def filename2tif_names(filename, bands, sep='_'):
     assert ext == '.tif'
     filenames = {}
     for band in bands:
-        filenames[band] = base + sep + band + ext
+        build = Path(base + sep + band + ext)
+        filenames[band] = build.absolute().as_uri()
+
     return filenames
 
 
 def dataset_to_geotif_yaml(dataset,
-                           filename=None,
+                           filename,
                            global_attributes=None,
                            variable_params=None):
     """
@@ -686,8 +689,8 @@ def dataset_to_geotif_yaml(dataset,
     if not os.path.exists(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
 
-    # with open('result.yml', 'w') as yaml_file:
-    #     yaml.dump(d, yaml_file, default_flow_style=False)
+    with open('result_global_attributes.yml', 'w') as yaml_file:
+         yaml.dump(global_attributes, yaml_file)
 
     # Iterate over the bands
     for key, bandfile in filenames.items():
