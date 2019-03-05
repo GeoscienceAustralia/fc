@@ -58,6 +58,7 @@ def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None)
     """
     if measurements is None:
         measurements = DEFAULT_MEASUREMENTS
+    measurements = [Measurement(**m_dict) for m_dict in measurements]
 
     # Ensure the bands are all there and in the right order
     nbar_tile = nbar_tile[['green', 'red', 'nir', 'swir1', 'swir2']]
@@ -84,7 +85,7 @@ def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None)
 
         return output_data[i, :, :]
 
-    dataset = Datacube.create_storage({}, nbar_tile.geobox, [Measurement(**m_dict) for m_dict in m], data_func)
+    dataset = Datacube.create_storage({}, nbar_tile.geobox, measurements, data_func)
 
     return dataset
 
