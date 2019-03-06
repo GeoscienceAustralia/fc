@@ -52,7 +52,7 @@ def test_filename2tif_names():
     filename = base + ext
     filedic = filename2tif_names(filename, bands)
     key = 'BS'
-    assert filedic[key]['path'] == Path(base + '_' + key + ext).absolute().as_uri()
+    assert filedic[key] == Path(base + '_' + key + ext).absolute().as_uri()
 
 
 def test_all_files_exist():
@@ -62,10 +62,7 @@ def test_all_files_exist():
     filenames = [current, current]
     assert all_files_exist(filenames)
 
-    filenames_dict = {'a':{'path':current},
-                      'c':{'path':current},
-                      'b':{'path':'this_isnt_.here'}}
+    filenames_dict = {'a':current, 'c':current, 'b':'this_isnt_.here'}
     assert not all_files_exist(filenames_dict.values())
-    filenames_dict = {'a':{'path':current},
-                      'c':{'path':current}}
+    filenames_dict = {'a':current, 'b':current}
     assert all_files_exist(filenames_dict.values())

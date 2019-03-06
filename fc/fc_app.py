@@ -24,6 +24,7 @@ from typing import Tuple
 import click
 import xarray
 from pandas import to_datetime
+from boltons import fileutils
 
 from datacube.api.grid_workflow import GridWorkflow, Tile
 from datacube.api.query import Query
@@ -223,80 +224,16 @@ def _do_fc_task(config, task):
 
     base, ext = os.path.splitext(file_path)
     if ext == '.tif':
-        filenames_dict = filename2tif_names(file_path, variable_params.keys())
-        if all_files_exist(filenames_dict.values()['path']):
+        filenames = filename2tif_names(file_path, variable_params.keys())
+        uri = None
+        band_uris = {band: {'path': uri, 'layer': band} for band, uri in filenames.items()}
+        if all_files_exist(filenames.values()):
             raise OSError(errno.EEXIST, 'All output files already exist ', str(filenames_dict.values()))
-    elif file_path.exists():
-        raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
-
-
-
-    nbart_tile: Tile = task['nbart']
-    nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
-
-    output_measurements = config['fc_product'].measurements.values()
-    fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
-
-    def _make_dataset(labels, sources):
-        assert sources
-        dataset = make_dataset(product=output_product,
-                               sources=sources,
-                               extent=nbart.geobox.extent,
-                               center_time=labels['time'],
-                               uri=file_path.absolute().as_uri(),
-                               app_info=_get_app_metadata(config),
-                               valid_data=polygon_from_sources_extents(sources, nbart.geobox))
-        return dataset
-
-    datasets = xr_apply(nbart_tile.sources, _make_dataset, dtype='O')
-    fc_dataset['dataset'] = datasets_to_doc(datasets)
-
-    base, ext = os.path.splitext(file_path)
-    if ext == '.tif':
-        dataset_to_geotif_yaml(
-            dataset=fc_dataset,
-            filename=file_path,
-            global_attributes=global_attributes,
-            variable_params=variable_params,
-        )
     else:
-        write_dataset_to_netcdf(
-            dataset=fc_dataset,
-            filename=file_path,
-            global_attributes=global_attributes,
-            variable_params=variable_params,
-        )
-
-    return datasets
-
-def _do_fc_task_upgrade(config, task):
-    """
-    Load data, run FC algorithm, attach metadata, and write output.
-    :param dict config: Config object
-    :param dict task: Dictionary of tasks
-    :return: Dataset objects representing the generated data that can be added to the index
-    :rtype: list(datacube.model.Dataset)
-    """
-
-    # pickle_out = open("config_dev_nc.pickle", "wb")
-    # pickle.dump(config, pickle_out)
-    # pickle_out.close()
-    # pickle_out = open("task_dev_nc.pickle", "wb")
-    # pickle.dump(task, pickle_out)
-    # pickle_out.close()
-
-    global_attributes = config['global_attributes']
-    variable_params = config['variable_params']
-    file_path = Path(task['filename'])
-    output_product = config['fc_product']
-
-    base, ext = os.path.splitext(file_path)
-    if ext == '.tif':
-        filenames_dict = filename2tif_names(file_path, variable_params.keys())
-        if all_files_exist(filenames_dict.values()['path']):
-            raise OSError(errno.EEXIST, 'All output files already exist ', str(filenames_dict.values()))
-    elif file_path.exists():
-        raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+        band_uris = None
+        uri = file_path.absolute().as_uri()
+        if file_path.exists():
+            raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
 
 
 
@@ -312,7 +249,8 @@ def _do_fc_task_upgrade(config, task):
                                sources=sources,
                                extent=nbart.geobox.extent,
                                center_time=labels['time'],
-                               uri=file_path.absolute().as_uri(),
+                               uri=uri,
+                               band_uris=band_uris,
                                app_info=_get_app_metadata(config),
                                valid_data=polygon_from_sources_extents(sources, nbart.geobox))
         return dataset
@@ -714,14 +652,14 @@ def filename2tif_names(filename, bands, sep='_'):
 
     :param filename:
     :param bands: a list of bands/measurements
-    :return: A dict of dicts. internal dict key 'path', value Path
+    :return: filenames
     """
     base, ext = os.path.splitext(filename)
     assert ext == '.tif'
     filenames = {}
     for band in bands:
         build = Path(base + sep + band + ext)
-        filenames[band] = {'path':build.absolute().as_uri()}
+        filenames[band] = build.absolute().as_uri()
 
     return filenames
 
@@ -757,12 +695,14 @@ def dataset_to_geotif_yaml(dataset,
     if not os.path.exists(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
 
-    with open('result_global_attributes.yml', 'w') as yaml_file:
-         yaml.dump(global_attributes, yaml_file)
+    base, ext = os.path.splitext(filename)
+    yaml_filename = base + '.yml'
+    with fileutils.atomic_save(yaml_filename) as yaml_dst:
+        yaml_dst.write(dataset.data_vars['dataset'].values[0])
+
 
     # Iterate over the bands
-    for key, value in filenames.items():
-        bandfile = value['path']
+    for key, bandfile in filenames.items():
         slim_dataset = dataset[[key]] # create a one band dataset
         attrs = slim_dataset[key].attrs.copy() # To get nodata in
         del attrs['crs']  # It's  format is poor
