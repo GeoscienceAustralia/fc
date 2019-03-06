@@ -7,6 +7,13 @@ product_type: fractional_cover
 location: '/g/data/fk4/datacube/002/FC/'
 file_path_template: 'S2_FC/{tile_index[0]}_{tile_index[1]}/S2_FC_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.nc'
 
+input_mapping:
+  nbart_green: green
+  nbart_nir_1: nir
+  nbart_red: red
+  nbart_swir_2: swir1
+  nbart_swir_3: swir2
+
 sensor_regression_coefficients:
 #  The coefficients is applied to band values in the 0-10,000 range, before it is scaled to a fraction
 #  This means the first coefficient has been also scaled when compared to the literature
