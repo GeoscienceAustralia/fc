@@ -9,7 +9,7 @@ The three entry points are:
 2. datacube-fc generate
 3. datacube-fc run
 """
-import yaml
+
 import errno
 import logging
 import os
@@ -150,7 +150,6 @@ def _get_filename(config, tile_index, sources):
                                      version=config['task_timestamp'])
 
 
-
 def _make_fc_tasks(index: Index,
                    config: dict,
                    query: dict):
@@ -228,14 +227,12 @@ def _do_fc_task(config, task):
         uri = None
         band_uris = {band: {'path': uri, 'layer': band} for band, uri in filenames.items()}
         if all_files_exist(filenames.values()):
-            raise OSError(errno.EEXIST, 'All output files already exist ', str(filenames_dict.values()))
+            raise OSError(errno.EEXIST, 'All output files already exist ', str(filenames.values()))
     else:
         band_uris = None
         uri = file_path.absolute().as_uri()
         if file_path.exists():
             raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
-
-
 
     nbart_tile: Tile = task['nbart']
     nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
@@ -275,6 +272,7 @@ def _do_fc_task(config, task):
         )
 
     return datasets
+
 
 def _process_result(index: Index, result):
     for dataset in result.values:
@@ -418,6 +416,44 @@ def submit(index: Index,
         If dry run is enabled, application only prepares a list of output files to be created and does not
         record anything in the database.
     """
+
+    submit_command(index,
+                   app_config,
+                   project,
+                   queue,
+                   no_qsub,
+                   time_range,
+                   tag,
+                   email_options,
+                   email_id,
+                   dry_run)
+    return 0
+
+
+def submit_command(index: Index,
+           app_config: str,
+           project: str,
+           queue: str,
+           no_qsub: bool,
+           time_range: Tuple[datetime, datetime],
+           tag: str,
+           email_options: str,
+           email_id: str,
+           dry_run: bool):
+    """
+
+    :param index:
+    :param app_config:
+    :param project:
+    :param queue:
+    :param no_qsub:
+    :param time_range:
+    :param tag:
+    :param email_options:
+    :param email_id:
+    :param dry_run:
+    :return: Created task description
+    """
     _LOG.info('Tag: %s', tag)
 
     app_config_path = Path(app_config).resolve()
@@ -442,7 +478,8 @@ def submit(index: Index,
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
-        return 0
+        # currently just used for teting
+        return task_path
 
     # If dry run is not enabled just pass verbose option
     dry_run_option = '--dry-run' if dry_run else '-v'
@@ -471,7 +508,7 @@ def submit(index: Index,
             walltime='1h'
         )
     )
-
+    return 0
 
 @cli.command(help='Generate Tasks into file and Queue PBS job to process them')
 @click.option('--no-qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
@@ -497,6 +534,23 @@ def generate(index: Index,
 
     If dry run is enabled, do not add the new products to the database.
     """
+    return generate_command(index,
+                    task_desc_file,
+                    no_qsub,
+                    tag,
+                    email_options,
+                    email_id,
+                    dry_run)
+
+
+def generate_command(index: Index,
+             task_desc_file: str,
+             no_qsub: bool,
+             tag: str,
+             email_options: str,
+             email_id: str,
+             dry_run: bool):
+
     _LOG.info('Tag: %s', tag)
 
     config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
@@ -545,6 +599,7 @@ def generate(index: Index,
             walltime=walltime
         ),
     )
+    return 0
 
 
 def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:
@@ -584,6 +639,18 @@ def run(index,
     """
     Process generated task file. If dry run is enabled, only check for the existing files
     """
+    return run_command(index,
+                 dry_run,
+                tag,
+                task_desc_file,
+                runner)
+
+
+def run_command(index,
+        dry_run: bool,
+        tag: str,
+        task_desc_file: str,
+        runner: TaskRunner):
     task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
     config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
 
@@ -602,6 +669,7 @@ def run(index,
         _LOG.info("Runner finished normally, triggering shutdown.")
     finally:
         runner.stop()
+    return 0
 
 ## DSG edits
 @cli.command(help='Poke around the fc code base.')
