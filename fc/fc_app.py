@@ -260,7 +260,6 @@ def _do_fc_task(config, task):
         dataset_to_geotif_yaml(
             dataset=fc_dataset,
             filename=file_path,
-            global_attributes=global_attributes,
             variable_params=variable_params,
         )
     else:
@@ -431,15 +430,15 @@ def submit(index: Index,
 
 
 def submit_command(index: Index,
-           app_config: str,
-           project: str,
-           queue: str,
-           no_qsub: bool,
-           time_range: Tuple[datetime, datetime],
-           tag: str,
-           email_options: str,
-           email_id: str,
-           dry_run: bool):
+                   app_config: str,
+                   project: str,
+                   queue: str,
+                   no_qsub: bool,
+                   time_range: Tuple[datetime, datetime],
+                   tag: str,
+                   email_options: str,
+                   email_id: str,
+                   dry_run: bool):
     """
 
     :param index:
@@ -510,6 +509,7 @@ def submit_command(index: Index,
     )
     return 0
 
+
 @cli.command(help='Generate Tasks into file and Queue PBS job to process them')
 @click.option('--no-qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
 @click.option('--task-desc', 'task_desc_file', help='Task environment description file',
@@ -535,21 +535,21 @@ def generate(index: Index,
     If dry run is enabled, do not add the new products to the database.
     """
     return generate_command(index,
-                    task_desc_file,
-                    no_qsub,
-                    tag,
-                    email_options,
-                    email_id,
-                    dry_run)
+                            task_desc_file,
+                            no_qsub,
+                            tag,
+                            email_options,
+                            email_id,
+                            dry_run)
 
 
 def generate_command(index: Index,
-             task_desc_file: str,
-             no_qsub: bool,
-             tag: str,
-             email_options: str,
-             email_id: str,
-             dry_run: bool):
+                     task_desc_file: str,
+                     no_qsub: bool,
+                     tag: str,
+                     email_options: str,
+                     email_id: str,
+                     dry_run: bool):
 
     _LOG.info('Tag: %s', tag)
 
@@ -639,18 +639,11 @@ def run(index,
     """
     Process generated task file. If dry run is enabled, only check for the existing files
     """
-    return run_command(index,
-                 dry_run,
-                tag,
-                task_desc_file,
-                runner)
+    return run_command(index, dry_run, tag, task_desc_file, runner)
 
 
-def run_command(index,
-        dry_run: bool,
-        tag: str,
-        task_desc_file: str,
-        runner: TaskRunner):
+def run_command(index, dry_run: bool, tag: str, task_desc_file: str,
+                runner: TaskRunner):
     task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
     config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
 
@@ -671,46 +664,11 @@ def run_command(index,
         runner.stop()
     return 0
 
-## DSG edits
-@cli.command(help='Poke around the fc code base.')
-@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
-              required=True,
-              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
-@with_qsub_runner()
-@task_app.load_tasks_option
-@tag_option
-@ui.config_option
-@ui.verbose_option
-@ui.pass_index(app_name=APP_NAME)
-def mod(index,
-        dry_run: bool,
-        tag: str,
-        task_desc_file: str,
-        qsub: QSubLauncher,
-        runner: TaskRunner,
-        *args, **kwargs):
-    """
-    Process generated task file. If dry run is enabled, only check for the existing files
-    """
-    print ('into the void')
-
-    task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
-    config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
-
-    _LOG.info('Starting Fractional Cover processing...')
-    _LOG.info('Tag: %r', tag)
-    task_func = partial(_do_fc_task, config)
-
-    try:
-        runner(task_desc, tasks, task_func)
-        _LOG.info("Runner finished normally, triggering shutdown.")
-    finally:
-        runner.stop()
 
 def all_files_exist(filesnames):
     isthere = [os.path.isfile(i) for i in filesnames]
     return all(isthere)
+
 
 def filename2tif_names(filename, bands, sep='_'):
     """
@@ -720,6 +678,7 @@ def filename2tif_names(filename, bands, sep='_'):
 
     :param filename:
     :param bands: a list of bands/measurements
+    :param sep: the seperator between the base name and the band.
     :return: filenames
     """
     base, ext = os.path.splitext(filename)
@@ -734,7 +693,6 @@ def filename2tif_names(filename, bands, sep='_'):
 
 def dataset_to_geotif_yaml(dataset,
                            filename,
-                           global_attributes=None,
                            variable_params=None):
     """
     This is what goes into write_dataset_to_netcdf
@@ -745,17 +703,6 @@ def dataset_to_geotif_yaml(dataset,
 
     :return:
     """
-    # print ('************   dataset     ******************')
-    # print(dataset)
-    # # fileObject = open('dataset.pkl', 'wb')
-    # # pickle.dump(dataset, fileObject)
-    # # fileObject.close()
-    # print ('************   filename     ******************')
-    # print(filename)
-    # print ('************   global_attributes     ******************')
-    # print(global_attributes)
-    # print ('************   variable_params     ******************')
-    # print(variable_params)
 
     bands = variable_params.keys()
     filenames = filename2tif_names(filename, bands)
@@ -768,13 +715,12 @@ def dataset_to_geotif_yaml(dataset,
     with fileutils.atomic_save(yaml_filename) as yaml_dst:
         yaml_dst.write(dataset.data_vars['dataset'].values[0])
 
-
     # Iterate over the bands
     for key, bandfile in filenames.items():
-        slim_dataset = dataset[[key]] # create a one band dataset
-        attrs = slim_dataset[key].attrs.copy() # To get nodata in
-        del attrs['crs']  # It's  format is poor
-        del attrs['units']  # It's  format is poor
+        slim_dataset = dataset[[key]]   # create a one band dataset
+        attrs = slim_dataset[key].attrs.copy()  # To get nodata in
+        del attrs['crs']   # It's  format is poor
+        del attrs['units']   # It's  format is poor
         slim_dataset[key] = dataset.data_vars[key].astype('int16', copy=True)
         write_geotiff(bandfile, slim_dataset.isel(time=0), profile_override=attrs)
 
