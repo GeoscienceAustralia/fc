@@ -11,9 +11,10 @@ import xarray as xr
 import datacube.utils.geometry
 from datacube.model import Measurement
 from fc.fractional_cover import fractional_cover
-from fc.fc_app import _get_filename, filename2tif_names, all_files_exist
+from fc.fc_app import filename2tif_names, all_files_exist
 
 from pathlib import Path
+
 
 def test_fractional_cover(sr_filepath, fc_filepath):
     # print(sr_filepath)
@@ -62,7 +63,7 @@ def test_all_files_exist():
     filenames = [current, current]
     assert all_files_exist(filenames)
 
-    filenames_dict = {'a':current, 'c':current, 'b':'this_isnt_.here'}
+    filenames_dict = {'a': current, 'c': current, 'b': 'this_isnt_.here'}
     assert not all_files_exist(filenames_dict.values())
-    filenames_dict = {'a':current, 'b':current}
+    filenames_dict = {'a': current, 'b': current}
     assert all_files_exist(filenames_dict.values())

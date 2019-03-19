@@ -32,6 +32,7 @@ from datacube.index._api import Index
 from datacube.model import DatasetType
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.drivers.netcdf import write_dataset_to_netcdf
+from datacube.helpers import write_geotiff, DEFAULT_PROFILE
 from datacube.ui import click as ui
 from datacube.utils import geometry
 from datacube.ui import task_app
@@ -43,9 +44,6 @@ from digitalearthau.runners.util import submit_subjob, init_task_app
 from fc import __version__
 from fc.fractional_cover import fractional_cover
 
-from datacube.helpers import write_geotiff, DEFAULT_PROFILE
-
-import pickle
 
 
 APP_NAME = 'datacube-fc'
@@ -208,13 +206,6 @@ def _do_fc_task(config, task):
     :return: Dataset objects representing the generated data that can be added to the index
     :rtype: list(datacube.model.Dataset)
     """
-
-    # pickle_out = open("config_dev_nc.pickle", "wb")
-    # pickle.dump(config, pickle_out)
-    # pickle_out.close()
-    # pickle_out = open("task_dev_nc.pickle", "wb")
-    # pickle.dump(task, pickle_out)
-    # pickle_out.close()
 
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
@@ -440,17 +431,8 @@ def submit_command(index: Index,
                    email_id: str,
                    dry_run: bool):
     """
+    Kick off a two stage PBS job.
 
-    :param index:
-    :param app_config:
-    :param project:
-    :param queue:
-    :param no_qsub:
-    :param time_range:
-    :param tag:
-    :param email_options:
-    :param email_id:
-    :param dry_run:
     :return: Created task description
     """
     _LOG.info('Tag: %s', tag)
@@ -642,7 +624,10 @@ def run(index,
     return run_command(index, dry_run, tag, task_desc_file, runner)
 
 
-def run_command(index, dry_run: bool, tag: str, task_desc_file: str,
+def run_command(index,
+                dry_run: bool,
+                tag: str,
+                task_desc_file: str,
                 runner: TaskRunner):
     task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
     config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
@@ -665,20 +650,27 @@ def run_command(index, dry_run: bool, tag: str, task_desc_file: str,
     return 0
 
 
-def all_files_exist(filesnames):
+def all_files_exist(filesnames: list):
+    """
+    Return True if all files in a list exist.
+
+    :param filesnames: A list of file paths.
+    :return:
+    """
     isthere = [os.path.isfile(i) for i in filesnames]
     return all(isthere)
 
 
-def filename2tif_names(filename, bands, sep='_'):
+def filename2tif_names(filename: Path, bands: list, sep='_'):
     """
-    Turn one file name into serveral file names, one per band.
+    Turn one file name into several file names, one per band.
     This turns a .tif filename into a dictionary of filenames,
     the band as the key, with the band inserted into the file names.
+        i.e ls8_fc.tif -> ls8_fc_BS.tif  (Last underscore is separator)
 
-    :param filename:
+    :param filename: a Path.
     :param bands: a list of bands/measurements
-    :param sep: the seperator between the base name and the band.
+    :param sep: the separator between the base name and the band.
     :return: filenames
     """
     base, ext = os.path.splitext(filename)
@@ -691,17 +683,21 @@ def filename2tif_names(filename, bands, sep='_'):
     return filenames
 
 
-def dataset_to_geotif_yaml(dataset,
-                           filename,
+def dataset_to_geotif_yaml(dataset: xarray.Dataset,
+                           filename: Path,
                            variable_params=None):
-    """
-    This is what goes into write_dataset_to_netcdf
-           dataset=fc_dataset,
-        filename=file_path,
-        global_attributes=global_attributes,
-        variable_params=variable_params,
 
-    :return:
+    """
+    Write the dataset out as a set of geotifs with metadata in a yaml file.
+    There will be one geotiff file per band.
+    The band name is added into the file name.
+    i.e ls8_fc.tif -> ls8_fc_BS.tif
+
+    :param `xarray.Dataset` dataset:
+    :param `Path` filename: Output filename
+    :param variable_params: dict of variable_name: {param_name: param_value, [...]}
+                            Used to get band names.
+
     """
 
     bands = variable_params.keys()
@@ -710,6 +706,7 @@ def dataset_to_geotif_yaml(dataset,
     if not os.path.exists(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
 
+    # Write out the yaml file
     base, ext = os.path.splitext(filename)
     yaml_filename = base + '.yml'
     with fileutils.atomic_save(yaml_filename) as yaml_dst:
