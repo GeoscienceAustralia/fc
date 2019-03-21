@@ -214,7 +214,11 @@ def _do_fc_task(config, task):
 
     base, ext = os.path.splitext(file_path)
     if ext == '.tif':
-        filenames = filename2tif_names(file_path, variable_params.keys())
+        # the give_path value used is highly coupled to
+        # dataset_to_geotif_yaml since it's assuming the
+        # yaml file is in the same dir as the tif file
+        filenames = filename2tif_names(file_path, variable_params.keys(),
+                                       give_path=True)
         uri = None
         band_uris = {band: {'path': uri, 'layer': band} for band, uri in filenames.items()}
         if all_files_exist(filenames.values()):
@@ -661,7 +665,8 @@ def all_files_exist(filesnames: list):
     return all(isthere)
 
 
-def filename2tif_names(filename: Path, bands: list, sep='_'):
+def filename2tif_names(filename: Path, bands: list, sep='_',
+                       give_path=True):
     """
     Turn one file name into several file names, one per band.
     This turns a .tif filename into a dictionary of filenames,
@@ -678,7 +683,14 @@ def filename2tif_names(filename: Path, bands: list, sep='_'):
     filenames = {}
     for band in bands:
         build = Path(base + sep + band + ext)
-        filenames[band] = build.absolute().as_uri()
+        filenames[band] = build
+        if give_path:
+            # I don't know if .as_uri() is needed
+            filenames[band] = filenames[band].absolute().as_uri()
+        else:
+            # This is to get relative paths
+            filenames[band] = os.path.basename(filenames[band])
+
 
     return filenames
 

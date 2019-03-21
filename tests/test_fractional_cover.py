@@ -55,6 +55,10 @@ def test_filename2tif_names():
     key = 'BS'
     assert filedic[key] == Path(base + '_' + key + ext).absolute().as_uri()
 
+    filedic = filename2tif_names(filename, bands,
+                                 give_path=True)
+    assert filedic[key] == str(base + '_' + key + ext)
+
 
 def test_all_files_exist():
     current = os.path.basename(__file__)
