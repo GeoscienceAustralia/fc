@@ -21,6 +21,7 @@ from pathlib import Path
 from time import time as time_now
 from typing import Tuple
 
+
 import click
 import xarray
 from pandas import to_datetime
@@ -43,7 +44,6 @@ from digitalearthau.runners.model import TaskDescription
 from digitalearthau.runners.util import submit_subjob, init_task_app
 from fc import __version__
 from fc.fractional_cover import fractional_cover
-
 
 
 APP_NAME = 'datacube-fc'
@@ -114,6 +114,7 @@ def _ensure_products(app_config: dict, index: Index, dry_run: bool) -> Tuple[Dat
     )
     if not dry_run:
         _LOG.info('Add the output product definition for %s in the database.', output_product.name)
+
         output_product = index.products.add(output_product)
     return source_product, output_product
 
@@ -217,12 +218,11 @@ def _do_fc_task(config, task):
         # the give_path value used is highly coupled to
         # dataset_to_geotif_yaml since it's assuming the
         # yaml file is in the same dir as the tif file
-        filenames = filename2tif_names(file_path, variable_params.keys(),
-                                       give_path=True)
-        uri = None
-        band_uris = {band: {'path': uri, 'layer': band} for band, uri in filenames.items()}
-        if all_files_exist(filenames.values()):
-            raise OSError(errno.EEXIST, 'All output files already exist ', str(filenames.values()))
+        abs_paths, rel_files, yml = tif_filenames(file_path, variable_params.keys())
+        uri = yml.as_uri()
+        band_uris = {band: {'path': uri, 'layer': band} for band, uri in rel_files.items()}
+        if all_files_exist(abs_paths.values()):
+            raise OSError(errno.EEXIST, 'All output files already exist ', str(rel_files.values()))
     else:
         band_uris = None
         uri = file_path.absolute().as_uri()
@@ -665,34 +665,32 @@ def all_files_exist(filesnames: list):
     return all(isthere)
 
 
-def filename2tif_names(filename: Path, bands: list, sep='_',
-                       give_path=True):
+def tif_filenames(filename: Path, bands: list, sep='_'):
     """
     Turn one file name into several file names, one per band.
-    This turns a .tif filename into a dictionary of filenames,
-    the band as the key, with the band inserted into the file names.
+    This turns a .tif filename into two dictionaries of filenames,
+    For abs and rel the band as the key, with the band inserted into the file names.
         i.e ls8_fc.tif -> ls8_fc_BS.tif  (Last underscore is separator)
+    The paths in abs_paths are absolute
+    The paths in rel_files are relative to the yml
+    yml is the path location to where the yml file will be written
 
     :param filename: a Path.
     :param bands: a list of bands/measurements
     :param sep: the separator between the base name and the band.
-    :return: filenames
+    :return: (abs_paths, rel_files, yml)
     """
     base, ext = os.path.splitext(filename)
     assert ext == '.tif'
-    filenames = {}
+    yml = Path(base + '.yml').absolute()
+    abs_paths = {}
+    rel_files = {}
     for band in bands:
         build = Path(base + sep + band + ext)
-        filenames[band] = build
-        if give_path:
-            # I don't know if .as_uri() is needed
-            filenames[band] = filenames[band].absolute().as_uri()
-        else:
-            # This is to get relative paths
-            filenames[band] = os.path.basename(filenames[band])
-
-
-    return filenames
+        abs_paths[band] = build.absolute().as_uri()
+        # This is to get relative paths
+        rel_files[band] = os.path.basename(build)
+    return abs_paths, rel_files, yml
 
 
 def dataset_to_geotif_yaml(dataset: xarray.Dataset,
@@ -713,19 +711,17 @@ def dataset_to_geotif_yaml(dataset: xarray.Dataset,
     """
 
     bands = variable_params.keys()
-    filenames = filename2tif_names(filename, bands)
+    abs_paths, _, yml = tif_filenames(filename, bands)
 
     if not os.path.exists(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
 
     # Write out the yaml file
-    base, ext = os.path.splitext(filename)
-    yaml_filename = base + '.yml'
-    with fileutils.atomic_save(yaml_filename) as yaml_dst:
+    with fileutils.atomic_save(str(yml)) as yaml_dst:
         yaml_dst.write(dataset.data_vars['dataset'].values[0])
 
     # Iterate over the bands
-    for key, bandfile in filenames.items():
+    for key, bandfile in abs_paths.items():
         slim_dataset = dataset[[key]]   # create a one band dataset
         attrs = slim_dataset[key].attrs.copy()  # To get nodata in
         del attrs['crs']   # It's  format is poor

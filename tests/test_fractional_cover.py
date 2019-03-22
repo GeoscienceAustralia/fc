@@ -11,7 +11,7 @@ import xarray as xr
 import datacube.utils.geometry
 from datacube.model import Measurement
 from fc.fractional_cover import fractional_cover
-from fc.fc_app import filename2tif_names, all_files_exist
+from fc.fc_app import tif_filenames, all_files_exist
 
 from pathlib import Path
 
@@ -51,13 +51,12 @@ def test_filename2tif_names():
     base = 'yeah'
     ext = '.tif'
     filename = base + ext
-    filedic = filename2tif_names(filename, bands)
+    abs_paths, rel_files, yml = tif_filenames(filename, bands)
     key = 'BS'
-    assert filedic[key] == Path(base + '_' + key + ext).absolute().as_uri()
+    assert abs_paths[key] == Path(base + '_' + key + ext).absolute().as_uri()
+    assert rel_files[key] == str(base + '_' + key + ext)
+    assert yml == Path(base + '.yml').absolute().as_uri()
 
-    filedic = filename2tif_names(filename, bands,
-                                 give_path=True)
-    assert filedic[key] == str(base + '_' + key + ext)
 
 
 def test_all_files_exist():
