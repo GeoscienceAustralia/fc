@@ -58,7 +58,6 @@ def test_filename2tif_names():
     assert yml == Path(base + '.yml').absolute().as_uri()
 
 
-
 def test_all_files_exist():
     current = os.path.basename(__file__)
     filenames = [current, 'this_isnt_.here']
