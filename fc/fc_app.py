@@ -9,6 +9,8 @@ The three entry points are:
 2. datacube-fc generate
 3. datacube-fc run
 """
+from __future__ import absolute_import
+from __future__ import division
 
 import errno
 import logging
@@ -20,7 +22,6 @@ from math import ceil
 from pathlib import Path
 from time import time as time_now
 from typing import Tuple
-
 
 import click
 import xarray
@@ -198,6 +199,26 @@ def _make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
     output_tile = unsqueeze_dataset(data, 'time', nbart.time.values[0])
     return output_tile
 
+def calc_uris(file_path, variable_params):
+
+    base, ext = os.path.splitext(file_path)
+    if ext == '.tif':
+        # the give_path value used is highly coupled to
+        # dataset_to_geotif_yaml since it's assuming the
+        # yaml file is in the same dir as the tif file
+        abs_paths, rel_files, yml = tif_filenames(file_path, variable_params.keys())
+        uri = yml.as_uri()
+        band_uris = {band: {'path': uri, 'layer': band} for band, uri in rel_files.items()}
+        if all_files_exist(list(abs_paths.values())):
+            raise OSError(errno.EEXIST, 'All output files already exist ', str(list(rel_files.values())))
+    else:
+        band_uris = None
+        uri = file_path.absolute().as_uri()
+        if file_path.exists():
+            raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+
+    return uri, band_uris
+
 
 def _do_fc_task(config, task):
     """
@@ -213,21 +234,7 @@ def _do_fc_task(config, task):
     file_path = Path(task['filename'])
     output_product = config['fc_product']
 
-    base, ext = os.path.splitext(file_path)
-    if ext == '.tif':
-        # the give_path value used is highly coupled to
-        # dataset_to_geotif_yaml since it's assuming the
-        # yaml file is in the same dir as the tif file
-        abs_paths, rel_files, yml = tif_filenames(file_path, variable_params.keys())
-        uri = yml.as_uri()
-        band_uris = {band: {'path': uri, 'layer': band} for band, uri in rel_files.items()}
-        if all_files_exist(abs_paths.values()):
-            raise OSError(errno.EEXIST, 'All output files already exist ', str(rel_files.values()))
-    else:
-        band_uris = None
-        uri = file_path.absolute().as_uri()
-        if file_path.exists():
-            raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+    uri, band_uris = calc_uris(file_path, variable_params)
 
     nbart_tile: Tile = task['nbart']
     nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
@@ -705,7 +712,7 @@ def dataset_to_geotif_yaml(dataset: xarray.Dataset,
 
     :param `xarray.Dataset` dataset:
     :param `Path` filename: Output filename
-    :param variable_params: dict of variable_name: {param_name: param_value, [...]}
+    :param params: dict of variable_name: {param_name: param_value, [...]}
                             Used to get band names.
 
     """
