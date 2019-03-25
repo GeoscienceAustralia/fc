@@ -166,9 +166,12 @@ def _make_fc_tasks(index: Index,
     workflow = GridWorkflow(index, output_product.grid_spec)
 
     tiles_in = workflow.list_tiles(product=input_product.name, **query)
-    _LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
+    #_LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
+    _LOG.info('%d %s tiles in %s', len(tiles_in), input_product.name, str(repr(query)))
+    # _LOG.info('Found %d tasks', num_tasks_saved)
     tiles_out = workflow.list_tiles(product=output_product.name, **query)
-    _LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
+    #_LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
+    _LOG.info('%d %s tiles in %s', len(tiles_out), output_product.name, str(repr(query)))
     return (
         dict(
             nbart=workflow.update_tile_lineage(tile),
