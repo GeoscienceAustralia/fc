@@ -55,7 +55,7 @@ def test_filename2tif_names():
     key = 'BS'
     assert abs_paths[key] == Path(base + '_' + key + ext).absolute().as_uri()
     assert rel_files[key] == str(base + '_' + key + ext)
-    assert yml == Path(base + '.yml').absolute().as_uri()
+    assert yml == Path(base + '.yml').absolute()
 
 
 def test_all_files_exist():
