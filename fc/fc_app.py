@@ -667,14 +667,14 @@ def run_command(index,
     return 0
 
 
-def all_files_exist(filesnames: list):
+def all_files_exist(filenames: list):
     """
     Return True if all files in a list exist.
 
     :param filesnames: A list of file paths.
     :return:
     """
-    isthere = [os.path.isfile(i) for i in filesnames]
+    isthere = [os.path.isfile(i) for i in filenames]
     return all(isthere)
 
 

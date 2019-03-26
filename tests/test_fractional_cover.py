@@ -59,7 +59,7 @@ def test_filename2tif_names():
 
 
 def test_all_files_exist():
-    current = os.path.basename(__file__)
+    current = os.path.realpath(__file__)
     filenames = [current, 'this_isnt_.here']
     assert not all_files_exist(filenames)
     filenames = [current, current]
