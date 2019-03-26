@@ -33,7 +33,10 @@ from datacube.api.query import Query
 from datacube.index._api import Index
 from datacube.model import DatasetType
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
-from datacube.drivers.netcdf import write_dataset_to_netcdf
+try:
+    from datacube.drivers.netcdf import write_dataset_to_netcdf
+except ImportError:
+    from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.helpers import write_geotiff, DEFAULT_PROFILE
 from datacube.ui import click as ui
 from datacube.utils import geometry
