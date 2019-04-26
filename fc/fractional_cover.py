@@ -3,6 +3,12 @@ from __future__ import absolute_import
 import numpy
 import numexpr
 import xarray
+from functools import partial
+try:
+    import dask.array
+    dask_array_type = (dask.array.Array,)
+except ImportError:  # pragma: no cover
+    dask_array_type = ()
 
 from datacube import Datacube
 from datacube.storage.masking import valid_data_mask
@@ -66,7 +72,7 @@ def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None)
     is_valid_array = valid_data_mask(nbar_tile).to_array(dim='band').all(dim='band')
 
     nbar = nbar_tile.to_array(dim='band')
-    nbar.data[:, ~is_valid_array.data] = no_data
+    nbar = nbar.where(is_valid_array, no_data)
 
     output_data = compute_fractions(nbar.data, regression_coefficients)
 
@@ -77,11 +83,11 @@ def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None)
 
         # Set nodata value into output array
         band_nodata = numpy.dtype(measurement['dtype']).type(measurement['nodata'])
-        compute_error = (output_data[i, :, :] == -1)
-        output_data[i, compute_error] = band_nodata
-        output_data[i, ~is_valid_array.data] = band_nodata
+        unmasked_var = output_data[i]
+        no_error = (unmasked_var != -1)
 
-        return output_data[i, :, :]
+        where = numpy.where if not isinstance(unmasked_var, dask_array_type) else dask.array.where
+        return where(is_valid_array.data & no_error, unmasked_var, band_nodata)
 
     dataset = Datacube.create_storage({}, nbar_tile.geobox, measurements, data_func)
 
@@ -103,6 +109,17 @@ def compute_fractions(nbar, regression_coefficients):
     :param numpy.array nbar: Input array of [green, red, nir, swir1, swir2] * (x, y)
     :return (numpy.array, numpy_array): Output array of [green, dead, bare] * (x, y), and the unmix error array
     """
+    if isinstance(nbar, dask_array_type):
+        lazy_compute_fractions = partial(_compute_fractions, regression_coefficients=regression_coefficients)
+        new_chunks = ((4,),) + nbar.chunks[1:]
+        out = dask.array.map_blocks(lazy_compute_fractions, nbar.data.rechunk({0: -1}), chunks=new_chunks, dtype='int8')
+        return out
+    else:
+        return _compute_fractions(nbar, regression_coefficients)
+
+
+#: pylint: disable=too-many-locals
+def _compute_fractions(nbar, regression_coefficients):
     temp_arr = make_temp_array(nbar)
 
     sum_to_one_weight = endmembers.sum_weight()
