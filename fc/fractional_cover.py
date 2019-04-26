@@ -112,7 +112,7 @@ def compute_fractions(nbar, regression_coefficients):
     if isinstance(nbar, dask_array_type):
         lazy_compute_fractions = partial(_compute_fractions, regression_coefficients=regression_coefficients)
         new_chunks = ((4,),) + nbar.chunks[1:]
-        out = dask.array.map_blocks(lazy_compute_fractions, nbar.data.rechunk({0: -1}), chunks=new_chunks, dtype='int8')
+        out = dask.array.map_blocks(lazy_compute_fractions, nbar.rechunk({0: -1}), chunks=new_chunks, dtype='int8')
         return out
     else:
         return _compute_fractions(nbar, regression_coefficients)
