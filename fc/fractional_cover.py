@@ -75,18 +75,18 @@ def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None)
     nbar = nbar.where(is_valid_array, no_data)
 
     output_data = compute_fractions(nbar.data, regression_coefficients)
+    error_val = -1
+    where = numpy.where if not isinstance(output_data, dask_array_type) else dask.array.where
 
     def data_func(measurement):
         band_names = ['PV', 'NPV', 'BS', 'UE']
         src_var = measurement.get('src_var', None) or measurement.get('name')
         i = band_names.index(src_var)
+        unmasked_var = output_data[i]
 
         # Set nodata value into output array
         band_nodata = numpy.dtype(measurement['dtype']).type(measurement['nodata'])
-        unmasked_var = output_data[i]
-        no_error = (unmasked_var != -1)
-
-        where = numpy.where if not isinstance(unmasked_var, dask_array_type) else dask.array.where
+        no_error = (unmasked_var != error_val)
         return where(is_valid_array.data & no_error, unmasked_var, band_nodata)
 
     dataset = Datacube.create_storage({}, nbar_tile.geobox, measurements, data_func)
@@ -110,9 +110,12 @@ def compute_fractions(nbar, regression_coefficients):
     :return (numpy.array, numpy_array): Output array of [green, dead, bare] * (x, y), and the unmix error array
     """
     if isinstance(nbar, dask_array_type):
-        lazy_compute_fractions = partial(_compute_fractions, regression_coefficients=regression_coefficients)
+        compute_fractions_with_regs = partial(_compute_fractions, regression_coefficients=regression_coefficients)
+        # The _compute_fractions func will change the band (first) dim from 5 to 4
         new_chunks = ((4,),) + nbar.chunks[1:]
-        out = dask.array.map_blocks(lazy_compute_fractions, nbar.rechunk({0: -1}), chunks=new_chunks, dtype='int8')
+        # Apply the function to very x/y tile in the dask array
+        # We need all bands for the calculation, so rechunk so they are in the same chunk
+        out = dask.array.map_blocks(compute_fractions_with_regs, nbar.rechunk({0: -1}), chunks=new_chunks, dtype='int8')
         return out
     else:
         return _compute_fractions(nbar, regression_coefficients)
