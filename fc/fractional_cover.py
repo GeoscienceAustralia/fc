@@ -15,7 +15,11 @@ from datacube.storage.masking import valid_data_mask
 from datacube.utils import iter_slices
 
 from . import endmembers
-from .unmix import unmiximage
+
+try:
+    from .unmix import unmiximage
+except ImportError:
+    from . import unmiximage_fallback as unmiximage
 
 
 DEFAULT_MEASUREMENTS = [{
