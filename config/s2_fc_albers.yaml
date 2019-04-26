@@ -1,7 +1,7 @@
 source_product: s2a_ard_granule
-output_product: s2a_fc_granule
+output_product: s2_fc
 
-description: Sentinel 2A Fractional Cover
+description: Sentinel 2 Fractional Cover
 product_type: fractional_cover
 
 location: '/g/data/fk4/datacube/002/FC/'
@@ -79,7 +79,7 @@ global_attributes:
   instrument: OLI
   keywords: AU/GA,REFLECTANCE,EARTH SCIENCE
   keywords_vocabulary: GCMD
-  platform: SENTINEL-2A
+  platform: SENTINEL-2
   publisher_email: earth.observation@ga.gov.au
   publisher_name: Section Leader, Operations Section, NEMO, Geoscience Australia
   publisher_url: http://www.ga.gov.au
