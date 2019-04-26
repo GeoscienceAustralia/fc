@@ -50,7 +50,10 @@ def test_fractional_cover_lazy(sr_filepath, fc_filepath):
 
     fc_dataset = fractional_cover(sr_dataset, measurements)
 
-    assert fc_dataset.data.dask
+    assert fc_dataset.PV.dask
+    assert fc_dataset.NPV.dask
+    assert fc_dataset.BS.dask
+    assert fc_dataset.UE.dask
 
     fc_dataset.load()
 
