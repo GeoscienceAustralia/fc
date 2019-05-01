@@ -1,4 +1,3 @@
-# coding=utf-8
 """
 Entry point for producing Fractional Cover products.
 
@@ -9,19 +8,19 @@ The three entry points are:
 2. datacube-fc generate
 3. datacube-fc run
 """
-import errno
 import logging
 import os
 from copy import deepcopy
 from datetime import datetime
 from functools import partial
-from math import ceil
 from pathlib import Path
 from time import time as time_now
-from typing import Tuple
+from typing import Tuple, Union, Iterable
 
 import click
 import xarray
+from boltons import fileutils
+from math import ceil
 from pandas import to_datetime
 
 from datacube.api.grid_workflow import GridWorkflow, Tile
@@ -29,7 +28,12 @@ from datacube.api.query import Query
 from datacube.index._api import Index
 from datacube.model import DatasetType
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
-from datacube.drivers.netcdf import write_dataset_to_netcdf
+
+try:
+    from datacube.drivers.netcdf import write_dataset_to_netcdf
+except ImportError:
+    from datacube.storage.storage import write_dataset_to_netcdf
+from datacube.helpers import write_geotiff
 from datacube.ui import click as ui
 from datacube.utils import geometry
 from datacube.ui import task_app
@@ -109,6 +113,7 @@ def _ensure_products(app_config: dict, index: Index, dry_run: bool) -> Tuple[Dat
     )
     if not dry_run:
         _LOG.info('Add the output product definition for %s in the database.', output_product.name)
+
         output_product = index.products.add(output_product)
     return source_product, output_product
 
@@ -118,7 +123,7 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     output_product_definition['name'] = config['output_product']
     output_product_definition['managed'] = True
     output_product_definition['description'] = config['description']
-    output_product_definition['metadata']['format'] = {'name': 'NetCDF'}
+    output_product_definition['metadata']['format'] = {'name': config['storage']['driver']}
     output_product_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
     output_product_definition['storage'] = {
         k: v for (k, v) in config['storage'].items()
@@ -159,10 +164,12 @@ def _make_fc_tasks(index: Index,
     workflow = GridWorkflow(index, output_product.grid_spec)
 
     tiles_in = workflow.list_tiles(product=input_product.name, **query)
-    _LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
+    # _LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
+    _LOG.info('%d %s tiles in %s', len(tiles_in), input_product.name, str(repr(query)))
+    # _LOG.info('Found %d tasks', num_tasks_saved)
     tiles_out = workflow.list_tiles(product=output_product.name, **query)
-    _LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
-
+    # _LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
+    _LOG.info('%d %s tiles in %s', len(tiles_out), output_product.name, str(repr(query)))
     return (
         dict(
             nbart=workflow.update_tile_lineage(tile),
@@ -194,6 +201,26 @@ def _make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
     return output_tile
 
 
+def calc_uris(file_path, variable_params):
+    base, ext = os.path.splitext(file_path)
+    if ext == '.tif':
+        # the give_path value used is highly coupled to
+        # dataset_to_geotif_yaml since it's assuming the
+        # yaml file is in the same dir as the tif file
+        abs_paths, rel_files, yml = tif_filenames(file_path, variable_params.keys())
+        uri = yml.as_uri()
+        band_uris = {band: {'path': uri, 'layer': band} for band, uri in rel_files.items()}
+        if all_files_exist(abs_paths.values()):
+            raise FileExistsError('All output files already exist ', str(list(rel_files.values())))
+    else:
+        band_uris = None
+        uri = file_path.absolute().as_uri()
+        if file_path.exists():
+            raise FileExistsError('Output file already exists', str(file_path))
+
+    return uri, band_uris
+
+
 def _do_fc_task(config, task):
     """
     Load data, run FC algorithm, attach metadata, and write output.
@@ -202,13 +229,13 @@ def _do_fc_task(config, task):
     :return: Dataset objects representing the generated data that can be added to the index
     :rtype: list(datacube.model.Dataset)
     """
+
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
     file_path = Path(task['filename'])
     output_product = config['fc_product']
 
-    if file_path.exists():
-        raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+    uri, band_uris = calc_uris(file_path, variable_params)
 
     nbart_tile: Tile = task['nbart']
     nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
@@ -222,7 +249,8 @@ def _do_fc_task(config, task):
                                sources=sources,
                                extent=nbart.geobox.extent,
                                center_time=labels['time'],
-                               uri=file_path.absolute().as_uri(),
+                               uri=uri,
+                               band_uris=band_uris,
                                app_info=_get_app_metadata(config),
                                valid_data=polygon_from_sources_extents(sources, nbart.geobox))
         return dataset
@@ -230,12 +258,21 @@ def _do_fc_task(config, task):
     datasets = xr_apply(nbart_tile.sources, _make_dataset, dtype='O')
     fc_dataset['dataset'] = datasets_to_doc(datasets)
 
-    write_dataset_to_netcdf(
-        dataset=fc_dataset,
-        filename=file_path,
-        global_attributes=global_attributes,
-        variable_params=variable_params,
-    )
+    base, ext = os.path.splitext(file_path)
+    if ext == '.tif':
+        dataset_to_geotif_yaml(
+            dataset=fc_dataset,
+            filename=file_path,
+            variable_params=variable_params,
+        )
+    else:
+        write_dataset_to_netcdf(
+            dataset=fc_dataset,
+            filename=file_path,
+            global_attributes=global_attributes,
+            variable_params=variable_params,
+        )
+
     return datasets
 
 
@@ -254,7 +291,7 @@ tag_option = click.option('--tag', type=str,
 pbs_email_options = click.option('--email-options', '-m', default='abe',
                                  type=click.Choice(['a', 'b', 'e', 'n', 'ae', 'ab', 'be', 'abe']),
                                  help='Send Email when execution is, \n'
-                                 '[a = aborted | b = begins | e = ends | n = do not send email]')
+                                      '[a = aborted | b = begins | e = ends | n = do not send email]')
 
 # pylint: disable=invalid-name
 pbs_email_id = click.option('--email-id', '-M', default='nci.monitor@dea.ga.gov.au',
@@ -381,6 +418,35 @@ def submit(index: Index,
         If dry run is enabled, application only prepares a list of output files to be created and does not
         record anything in the database.
     """
+
+    submit_command(index,
+                   app_config,
+                   project,
+                   queue,
+                   no_qsub,
+                   time_range,
+                   tag,
+                   email_options,
+                   email_id,
+                   dry_run)
+    return 0
+
+
+def submit_command(index: Index,
+                   app_config: str,
+                   project: str,
+                   queue: str,
+                   no_qsub: bool,
+                   time_range: Tuple[datetime, datetime],
+                   tag: str,
+                   email_options: str,
+                   email_id: str,
+                   dry_run: bool):
+    """
+    Kick off a two stage PBS job.
+
+    :return: Created task description
+    """
     _LOG.info('Tag: %s', tag)
 
     app_config_path = Path(app_config).resolve()
@@ -405,7 +471,8 @@ def submit(index: Index,
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
-        return 0
+        # currently just used for teting
+        return task_path
 
     # If dry run is not enabled just pass verbose option
     dry_run_option = '--dry-run' if dry_run else '-v'
@@ -434,6 +501,7 @@ def submit(index: Index,
             walltime='1h'
         )
     )
+    return 0
 
 
 @cli.command(help='Generate Tasks into file and Queue PBS job to process them')
@@ -460,6 +528,22 @@ def generate(index: Index,
 
     If dry run is enabled, do not add the new products to the database.
     """
+    return generate_command(index,
+                            task_desc_file,
+                            no_qsub,
+                            tag,
+                            email_options,
+                            email_id,
+                            dry_run)
+
+
+def generate_command(index: Index,
+                     task_desc_file: str,
+                     no_qsub: bool,
+                     tag: str,
+                     email_options: str,
+                     email_id: str,
+                     dry_run: bool):
     _LOG.info('Tag: %s', tag)
 
     config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
@@ -508,6 +592,7 @@ def generate(index: Index,
             walltime=walltime
         ),
     )
+    return 0
 
 
 def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:
@@ -547,6 +632,14 @@ def run(index,
     """
     Process generated task file. If dry run is enabled, only check for the existing files
     """
+    return run_command(index, dry_run, tag, task_desc_file, runner)
+
+
+def run_command(index,
+                dry_run: bool,
+                tag: str,
+                task_desc_file: str,
+                runner: TaskRunner):
     task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
     config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
 
@@ -565,6 +658,81 @@ def run(index,
         _LOG.info("Runner finished normally, triggering shutdown.")
     finally:
         runner.stop()
+    return 0
+
+
+def all_files_exist(filenames: Iterable):
+    """
+    Return True if all files in a list exist.
+
+    :param filenames: A list of file paths.
+    :return:
+    """
+    isthere = (os.path.isfile(i) for i in filenames)
+    return all(isthere)
+
+
+def tif_filenames(filename: Union[Path, str], bands: list, sep='_'):
+    """
+    Turn one file name into several file names, one per band.
+    This turns a .tif filename into two dictionaries of filenames,
+    For abs and rel the band as the key, with the band inserted into the file names.
+        i.e ls8_fc.tif -> ls8_fc_BS.tif  (Last underscore is separator)
+    The paths in abs_paths are absolute
+    The paths in rel_files are relative to the yml
+    yml is the path location to where the yml file will be written
+
+    :param filename: a Path.
+    :param bands: a list of bands/measurements
+    :param sep: the separator between the base name and the band.
+    :return: (abs_paths, rel_files, yml)
+    """
+    base, ext = os.path.splitext(filename)
+    assert ext == '.tif'
+    yml = Path(base + '.yml').absolute()
+    abs_paths = {}
+    rel_files = {}
+    for band in bands:
+        build = Path(base + sep + band + ext)
+        abs_paths[band] = build.absolute().as_uri()
+        # This is to get relative paths
+        rel_files[band] = os.path.basename(build)
+    return abs_paths, rel_files, yml
+
+
+def dataset_to_geotif_yaml(dataset: xarray.Dataset,
+                           filename: Union[Path, str],
+                           variable_params=None):
+    """
+    Write the dataset out as a set of geotifs with metadata in a yaml file.
+    There will be one geotiff file per band.
+    The band name is added into the file name.
+    i.e ls8_fc.tif -> ls8_fc_BS.tif
+
+    :param dataset:
+    :param filename: Output filename
+    :param variable_params: dict of variable_name: {param_name: param_value, [...]}
+                            Used to get band names.
+
+    """
+
+    bands = variable_params.keys()
+    abs_paths, _, yml = tif_filenames(filename, bands)
+
+    Path(filename).parent.mkdir(exist_ok=True)
+
+    # Write out the yaml file
+    with fileutils.atomic_save(str(yml)) as yaml_dst:
+        yaml_dst.write(dataset.data_vars['dataset'].values[0])
+
+    # Iterate over the bands
+    for key, bandfile in abs_paths.items():
+        slim_dataset = dataset[[key]]  # create a one band dataset
+        attrs = slim_dataset[key].attrs.copy()  # To get nodata in
+        del attrs['crs']  # It's  format is poor
+        del attrs['units']  # It's  format is poor
+        slim_dataset[key] = dataset.data_vars[key].astype('int16', copy=True)
+        write_geotiff(bandfile, slim_dataset.isel(time=0), profile_override=attrs)
 
 
 if __name__ == "__main__":
