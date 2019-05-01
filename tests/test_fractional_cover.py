@@ -1,19 +1,15 @@
-# coding=utf-8
 """
-Module
+Test functions for Fractional Cover App components
 """
-from __future__ import absolute_import, print_function
-
-import pytest
 import os
-from datetime import datetime
+from pathlib import Path
+
 import xarray as xr
+
 import datacube.utils.geometry
 from datacube.model import Measurement
-from fc.fractional_cover import fractional_cover
 from fc.fc_app import tif_filenames, all_files_exist
-
-from pathlib import Path
+from fc.fractional_cover import fractional_cover
 
 
 def test_fractional_cover(sr_filepath, fc_filepath):

@@ -1,4 +1,3 @@
-# coding=utf-8
 """
 Entry point for producing Fractional Cover products.
 
@@ -9,35 +8,32 @@ The three entry points are:
 2. datacube-fc generate
 3. datacube-fc run
 """
-from __future__ import absolute_import
-from __future__ import division
-
-import errno
 import logging
 import os
 from copy import deepcopy
 from datetime import datetime
 from functools import partial
-from math import ceil
 from pathlib import Path
 from time import time as time_now
-from typing import Tuple
+from typing import Tuple, Union, Iterable
 
 import click
 import xarray
-from pandas import to_datetime
 from boltons import fileutils
+from math import ceil
+from pandas import to_datetime
 
 from datacube.api.grid_workflow import GridWorkflow, Tile
 from datacube.api.query import Query
 from datacube.index._api import Index
 from datacube.model import DatasetType
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
+
 try:
     from datacube.drivers.netcdf import write_dataset_to_netcdf
 except ImportError:
     from datacube.storage.storage import write_dataset_to_netcdf
-from datacube.helpers import write_geotiff, DEFAULT_PROFILE
+from datacube.helpers import write_geotiff
 from datacube.ui import click as ui
 from datacube.utils import geometry
 from datacube.ui import task_app
@@ -48,7 +44,6 @@ from digitalearthau.runners.model import TaskDescription
 from digitalearthau.runners.util import submit_subjob, init_task_app
 from fc import __version__
 from fc.fractional_cover import fractional_cover
-
 
 APP_NAME = 'datacube-fc'
 _LOG = logging.getLogger(__file__)
@@ -169,11 +164,11 @@ def _make_fc_tasks(index: Index,
     workflow = GridWorkflow(index, output_product.grid_spec)
 
     tiles_in = workflow.list_tiles(product=input_product.name, **query)
-    #_LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
+    # _LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
     _LOG.info('%d %s tiles in %s', len(tiles_in), input_product.name, str(repr(query)))
     # _LOG.info('Found %d tasks', num_tasks_saved)
     tiles_out = workflow.list_tiles(product=output_product.name, **query)
-    #_LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
+    # _LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
     _LOG.info('%d %s tiles in %s', len(tiles_out), output_product.name, str(repr(query)))
     return (
         dict(
@@ -205,8 +200,8 @@ def _make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
     output_tile = unsqueeze_dataset(data, 'time', nbart.time.values[0])
     return output_tile
 
-def calc_uris(file_path, variable_params):
 
+def calc_uris(file_path, variable_params):
     base, ext = os.path.splitext(file_path)
     if ext == '.tif':
         # the give_path value used is highly coupled to
@@ -215,13 +210,13 @@ def calc_uris(file_path, variable_params):
         abs_paths, rel_files, yml = tif_filenames(file_path, variable_params.keys())
         uri = yml.as_uri()
         band_uris = {band: {'path': uri, 'layer': band} for band, uri in rel_files.items()}
-        if all_files_exist(list(abs_paths.values())):
-            raise OSError(errno.EEXIST, 'All output files already exist ', str(list(rel_files.values())))
+        if all_files_exist(abs_paths.values()):
+            raise FileExistsError('All output files already exist ', str(list(rel_files.values())))
     else:
         band_uris = None
         uri = file_path.absolute().as_uri()
         if file_path.exists():
-            raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+            raise FileExistsError('Output file already exists', str(file_path))
 
     return uri, band_uris
 
@@ -296,7 +291,7 @@ tag_option = click.option('--tag', type=str,
 pbs_email_options = click.option('--email-options', '-m', default='abe',
                                  type=click.Choice(['a', 'b', 'e', 'n', 'ae', 'ab', 'be', 'abe']),
                                  help='Send Email when execution is, \n'
-                                 '[a = aborted | b = begins | e = ends | n = do not send email]')
+                                      '[a = aborted | b = begins | e = ends | n = do not send email]')
 
 # pylint: disable=invalid-name
 pbs_email_id = click.option('--email-id', '-M', default='nci.monitor@dea.ga.gov.au',
@@ -549,7 +544,6 @@ def generate_command(index: Index,
                      email_options: str,
                      email_id: str,
                      dry_run: bool):
-
     _LOG.info('Tag: %s', tag)
 
     config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
@@ -667,18 +661,18 @@ def run_command(index,
     return 0
 
 
-def all_files_exist(filenames: list):
+def all_files_exist(filenames: Iterable):
     """
     Return True if all files in a list exist.
 
-    :param filesnames: A list of file paths.
+    :param filenames: A list of file paths.
     :return:
     """
-    isthere = [os.path.isfile(i) for i in filenames]
+    isthere = (os.path.isfile(i) for i in filenames)
     return all(isthere)
 
 
-def tif_filenames(filename: Path, bands: list, sep='_'):
+def tif_filenames(filename: Union[Path, str], bands: list, sep='_'):
     """
     Turn one file name into several file names, one per band.
     This turns a .tif filename into two dictionaries of filenames,
@@ -707,18 +701,17 @@ def tif_filenames(filename: Path, bands: list, sep='_'):
 
 
 def dataset_to_geotif_yaml(dataset: xarray.Dataset,
-                           filename: Path,
+                           filename: Union[Path, str],
                            variable_params=None):
-
     """
     Write the dataset out as a set of geotifs with metadata in a yaml file.
     There will be one geotiff file per band.
     The band name is added into the file name.
     i.e ls8_fc.tif -> ls8_fc_BS.tif
 
-    :param `xarray.Dataset` dataset:
-    :param `Path` filename: Output filename
-    :param params: dict of variable_name: {param_name: param_value, [...]}
+    :param dataset:
+    :param filename: Output filename
+    :param variable_params: dict of variable_name: {param_name: param_value, [...]}
                             Used to get band names.
 
     """
@@ -726,8 +719,7 @@ def dataset_to_geotif_yaml(dataset: xarray.Dataset,
     bands = variable_params.keys()
     abs_paths, _, yml = tif_filenames(filename, bands)
 
-    if not os.path.exists(os.path.dirname(filename)):
-        os.makedirs(os.path.dirname(filename))
+    Path(filename).parent.mkdir(exist_ok=True)
 
     # Write out the yaml file
     with fileutils.atomic_save(str(yml)) as yaml_dst:
@@ -735,10 +727,10 @@ def dataset_to_geotif_yaml(dataset: xarray.Dataset,
 
     # Iterate over the bands
     for key, bandfile in abs_paths.items():
-        slim_dataset = dataset[[key]]   # create a one band dataset
+        slim_dataset = dataset[[key]]  # create a one band dataset
         attrs = slim_dataset[key].attrs.copy()  # To get nodata in
-        del attrs['crs']   # It's  format is poor
-        del attrs['units']   # It's  format is poor
+        del attrs['crs']  # It's  format is poor
+        del attrs['units']  # It's  format is poor
         slim_dataset[key] = dataset.data_vars[key].astype('int16', copy=True)
         write_geotiff(bandfile, slim_dataset.isel(time=0), profile_override=attrs)
 
