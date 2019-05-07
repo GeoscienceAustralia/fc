@@ -97,6 +97,7 @@ def test_all_files_exist():
     filenames_dict = {'a': current, 'b': current}
     assert all_files_exist(filenames_dict.values())
 
+
 def test_estimate_job_size():
     nodes, wall_time_mins = _estimate_job_size(60)
     assert nodes == 1
