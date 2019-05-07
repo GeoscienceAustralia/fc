@@ -204,7 +204,7 @@ def _make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
 def calc_uris(file_path, variable_params):
     base, ext = os.path.splitext(file_path)
     if ext == '.tif':
-        # the give_path value used is highly coupled to
+        # the file_path value used is highly coupled to
         # dataset_to_geotif_yaml since it's assuming the
         # yaml file is in the same dir as the tif file
         abs_paths, rel_files, yml = tif_filenames(file_path, variable_params.keys())
