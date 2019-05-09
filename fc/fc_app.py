@@ -204,7 +204,7 @@ def _make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
 def calc_uris(file_path, variable_params):
     base, ext = os.path.splitext(file_path)
     if ext == '.tif':
-        # the give_path value used is highly coupled to
+        # the file_path value used is highly coupled to
         # dataset_to_geotif_yaml since it's assuming the
         # yaml file is in the same dir as the tif file
         abs_paths, rel_files, yml = tif_filenames(file_path, variable_params.keys())
@@ -381,6 +381,7 @@ def _estimate_job_size(num_tasks):
 @pbs_email_options
 @pbs_email_id
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
+@click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
 @task_app.app_config_option
 @ui.config_option
 @ui.verbose_option
@@ -394,7 +395,8 @@ def submit(index: Index,
            tag: str,
            email_options: str,
            email_id: str,
-           dry_run: bool):
+           dry_run: bool,
+           local: bool):
     """
     Kick off two stage PBS job
 
@@ -428,7 +430,8 @@ def submit(index: Index,
                    tag,
                    email_options,
                    email_id,
-                   dry_run)
+                   dry_run,
+                   local)
     return 0
 
 
@@ -441,7 +444,8 @@ def submit_command(index: Index,
                    tag: str,
                    email_options: str,
                    email_id: str,
-                   dry_run: bool):
+                   dry_run: bool,
+                   local: bool):
     """
     Kick off a two stage PBS job.
 
@@ -481,26 +485,37 @@ def submit_command(index: Index,
     # Append email options and email id to the PbsParameters dict key, extra_qsub_args
     task_desc.runtime_state.pbs_parameters.extra_qsub_args.extend(extra_qsub_args.split(' '))
 
-    submit_subjob(
-        name='generate',
-        task_desc=task_desc,
-        command=[
-            'generate', '-vv',
-            '--task-desc', str(task_path),
-            '--tag', tag,
-            '--log-queries',
-            '--email-id', email_id,
-            '--email-options', email_options,
-            dry_run_option,
-        ],
-        qsub_params=dict(
-            name='fc-generate-{}'.format(tag),
-            mem='medium',
-            wd=True,
-            nodes=1,
-            walltime='1h'
+    if not local:
+        submit_subjob(
+            name='generate',
+            task_desc=task_desc,
+            command=[
+                'generate', '-vv',
+                '--task-desc', str(task_path),
+                '--tag', tag,
+                '--log-queries',
+                '--email-id', email_id,
+                '--email-options', email_options,
+                dry_run_option,
+            ],
+            qsub_params=dict(
+                name='fc-generate-{}'.format(tag),
+                mem='medium',
+                wd=True,
+                nodes=1,
+                walltime='1h'
+            )
         )
-    )
+    else:
+        _LOG.info("local task execution! WARNING: This has only been tested for 1 or 2 task jobs.")
+        generate_command(index=index,
+                         task_desc_file=str(task_path),
+                         tag=tag,
+                         no_qsub=False,
+                         email_options=email_options,
+                         email_id=email_id,
+                         dry_run=dry_run,
+                         local=local)
     return 0
 
 
@@ -513,6 +528,7 @@ def submit_command(index: Index,
 @pbs_email_options
 @pbs_email_id
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
+@click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
 @ui.verbose_option
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
@@ -522,7 +538,8 @@ def generate(index: Index,
              tag: str,
              email_options: str,
              email_id: str,
-             dry_run: bool):
+             dry_run: bool,
+             local: bool):
     """
     Generate Tasks into file and Queue PBS job to process them.
 
@@ -534,7 +551,8 @@ def generate(index: Index,
                             tag,
                             email_options,
                             email_id,
-                            dry_run)
+                            dry_run,
+                            local)
 
 
 def generate_command(index: Index,
@@ -543,7 +561,8 @@ def generate_command(index: Index,
                      tag: str,
                      email_options: str,
                      email_id: str,
-                     dry_run: bool):
+                     dry_run: bool,
+                     local: bool):
     _LOG.info('Tag: %s', tag)
 
     config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
@@ -573,26 +592,36 @@ def generate_command(index: Index,
     # Append email options and email id to the PbsParameters dict key, extra_qsub_args
     task_desc.runtime_state.pbs_parameters.extra_qsub_args.extend(extra_qsub_args.split(' '))
 
-    submit_subjob(
-        name='run',
-        task_desc=task_desc,
-        command=[
-            'run',
-            '-vv',
-            '--task-desc', str(task_desc_file),
-            '--celery', 'pbs-launch',
-            '--tag', tag,
-            dry_run_option,
-        ],
-        qsub_params=dict(
-            name='fc-run-{}'.format(tag),
-            mem='medium',
-            wd=True,
-            nodes=nodes,
-            walltime=walltime
-        ),
-    )
+    if not local:
+        submit_subjob(
+            name='run',
+            task_desc=task_desc,
+            command=[
+                'run',
+                '-vv',
+                '--task-desc', str(task_desc_file),
+                '--celery', 'pbs-launch',
+                '--tag', tag,
+                dry_run_option,
+            ],
+            qsub_params=dict(
+                name='fc-run-{}'.format(tag),
+                mem='medium',
+                wd=True,
+                nodes=nodes,
+                walltime=walltime
+            ),
+        )
+    else:
+        _LOG.info("local task execution! WARNING: This has only been tested for 1 or 2 task jobs.")
+        runner = TaskRunner()
+        run_command(index,
+                    dry_run=dry_run,
+                    tag=tag,
+                    task_desc_file=str(task_desc_file),
+                    runner=runner)
     return 0
+
 
 
 def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:

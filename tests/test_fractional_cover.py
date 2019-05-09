@@ -8,7 +8,7 @@ import xarray as xr
 
 import datacube.utils.geometry
 from datacube.model import Measurement
-from fc.fc_app import tif_filenames, all_files_exist
+from fc.fc_app import tif_filenames, all_files_exist, _estimate_job_size
 from fc.fractional_cover import fractional_cover
 
 
@@ -96,3 +96,9 @@ def test_all_files_exist():
     assert not all_files_exist(filenames_dict.values())
     filenames_dict = {'a': current, 'b': current}
     assert all_files_exist(filenames_dict.values())
+
+
+def test_estimate_job_size():
+    nodes, wall_time_mins = _estimate_job_size(60)
+    assert nodes == 1
+    assert wall_time_mins == '20m'
