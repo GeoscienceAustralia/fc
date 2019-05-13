@@ -756,7 +756,7 @@ def dataset_to_geotif_yaml(dataset: xarray.Dataset,
     bands = variable_params.keys()
     abs_paths, _, yml = tif_filenames(filename, bands)
 
-    Path(filename).parent.mkdir(exist_ok=True)
+    Path(filename).parent.mkdir(parents=True, exist_ok=True)
 
     # Write out the yaml file
     with fileutils.atomic_save(str(yml)) as yaml_dst:
