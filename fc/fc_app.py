@@ -23,11 +23,13 @@ from boltons import fileutils
 from math import ceil
 from pandas import to_datetime
 
+from datacube import Datacube
 from datacube.api.grid_workflow import GridWorkflow, Tile
 from datacube.api.query import Query
 from datacube.index._api import Index
 from datacube.model import DatasetType
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
+from datacube.testutils import io
 
 try:
     from datacube.drivers.netcdf import write_dataset_to_netcdf
@@ -49,6 +51,15 @@ APP_NAME = 'datacube-fc'
 _LOG = logging.getLogger(__file__)
 CONFIG_DIR = Path(__file__).parent / 'config'
 
+band_mapping = ({'load_bands':('green', 'red', 'nir', 'swir1', 'swir2'),
+                 'rename':None},
+                {'load_bands':('nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2'),
+                 'rename':{'nbart_green':'green',
+                          'nbart_red':'red',
+                          'nbart_nir':'nir',
+                          'nbart_swir_1':'swir1',
+                          'nbart_swir_2':'swir2'}}
+)
 
 def polygon_from_sources_extents(sources, geobox):
     sources_union = geometry.unary_union(source.extent.to_crs(geobox.crs) for source in sources)
@@ -78,6 +89,27 @@ def _make_fc_config(index: Index, config: dict, dry_run):
 
     if 'task_timestamp' not in config:
         config['task_timestamp'] = int(time_now())
+
+    measurements = index.products.get_by_name(config['nbart_product'].name).measurements.keys()
+    print(measurements)
+
+    #band_mapping
+    config['load_bands'] = None
+    config['band_mapping'] = None
+    for guess in band_mapping:
+        if set(guess['load_bands']) <= set(measurements):
+            # These bands will work
+            config['load_bands'] = guess['load_bands']
+            config['band_mapping'] = guess['rename']
+            break
+
+
+    print (config['load_bands'])
+    print (config['band_mapping'])
+
+    #fixme need to remove! crashing out to save time
+    # _LOG.info('Crashing out _make_fc_config!')
+    # raise SystemExit
 
     return config
 
@@ -147,6 +179,8 @@ def _get_filename(config, tile_index, sources):
                                      end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'),
                                      version=config['task_timestamp'])
 
+def _get_filename_dataset(config, sources):
+    return None
 
 def _make_fc_tasks(index: Index,
                    config: dict,
@@ -179,6 +213,67 @@ def _make_fc_tasks(index: Index,
         for key, tile in tiles_in.items() if key not in tiles_out
     )
 
+
+def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers', derived_product='ls8_fc_albers'):
+    """
+    Yield the ids of datasets of type ``source_product``, which have not been processed into type ``derived_product``.
+
+    :param index: connected datacube Index
+    :param source_product: product name
+    :param derived_product: product name
+    :return: sequence of ids of type source_product
+    """
+
+    query = """
+    -- Select all the dataset ids of the source product
+    select id
+    from agdc.dataset
+    where dataset_type_ref = (select id from agdc.dataset_type where name = %(source_product)s)
+      and archived is NULL
+    -- EXCEPT
+        except
+    -- All the ids of the source product which have a destination product dataset id derived from them
+    select source_dataset_ref
+    from agdc.dataset_source
+    where dataset_ref in (-- select all the dataset ids of the derived product
+                          select id
+                          from agdc.dataset
+                          where dataset_type_ref =
+                                (select id from agdc.dataset_type where name = %(derived_product)s)
+                            and archived is NULL);"""
+
+    cursor = index._db._engine.execute(query, source_product=source_product, derived_product=derived_product)
+
+    for row in cursor.fetchall():
+        dataset = index.datasets.get(row[0], include_sources=True)
+        print ('yield')
+        yield dataset
+
+
+def _make_fc_tasks_datasets(index: Index,
+                   config: dict,
+                   query: dict):
+    """
+    Generate an iterable of 'tasks', matching the provided filter parameters.
+    Tasks can be generated for:
+    - all of time
+    - 1 particular year
+    - a range of years2019-05-16 14:51:51.6230002019-05-2019-05-16 14:51:51.62300016 14:51:51.623000
+    """
+    input_product = config['nbart_product']
+    output_product = config['fc_product']
+    print (input_product)
+    print (output_product)
+
+    dataset_gen = datasets_that_need_to_be_processed(index, input_product.name, output_product.name)
+
+    #_LOG.info('%d %s tiles in %s', len(tiles_out), output_product.name, str(repr(query)))
+    return (
+        dict(
+            dataset=dataset
+        )
+        for dataset in dataset_gen
+    )
 
 def _get_app_metadata(config):
     doc = {
@@ -229,7 +324,6 @@ def _do_fc_task(config, task):
     :return: Dataset objects representing the generated data that can be added to the index
     :rtype: list(datacube.model.Dataset)
     """
-
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
     file_path = Path(task['filename'])
@@ -241,7 +335,24 @@ def _do_fc_task(config, task):
     nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
 
     output_measurements = config['fc_product'].measurements.values()
+
+    # The new bit
+    sr_dataset_wt = io.native_load(task['dataset'], measurements=config['load_bands'])
+    if config['band_mapping'] is not None:
+        sr_dataset_wt = sr_dataset_wt.rename(config['band_mapping'] )
+    print(sr_dataset_wt)
+    print(nbart)
+    assert sr_dataset_wt == nbart
+    nbart = sr_dataset_wt
+
+
+    # #fixme need to remove! crashing out to save time
+    # _LOG.info('Crashing out!')
+    # raise SystemExit
+
     fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
+
+
 
     def _make_dataset(labels, sources):
         assert sources
@@ -383,7 +494,7 @@ def _estimate_job_size(num_tasks):
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
 @task_app.app_config_option
-@ui.config_option_exposed
+@ui.config_option
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
 def submit(index: Index,
@@ -396,8 +507,7 @@ def submit(index: Index,
            email_options: str,
            email_id: str,
            dry_run: bool,
-           local: bool,
-           config: tuple):
+           local: bool):
     """
     Kick off two stage PBS job
 
@@ -421,6 +531,7 @@ def submit(index: Index,
         If dry run is enabled, application only prepares a list of output files to be created and does not
         record anything in the database.
     """
+
     submit_command(index,
                    app_config,
                    project,
@@ -431,8 +542,7 @@ def submit(index: Index,
                    email_options,
                    email_id,
                    dry_run,
-                   local,
-                   config)
+                   local)
     return 0
 
 
@@ -446,14 +556,14 @@ def submit_command(index: Index,
                    email_options: str,
                    email_id: str,
                    dry_run: bool,
-                   local: bool,
-                   config: tuple):
+                   local: bool):
     """
     Kick off a two stage PBS job.
 
     :return: Created task description
     """
     _LOG.info('Tag: %s', tag)
+
     app_config_path = Path(app_config).resolve()
     app_config = paths.read_document(app_config_path)
 
@@ -497,7 +607,6 @@ def submit_command(index: Index,
                 '--log-queries',
                 '--email-id', email_id,
                 '--email-options', email_options,
-                '--config', config[0],
                 dry_run_option,
             ],
             qsub_params=dict(
@@ -517,8 +626,7 @@ def submit_command(index: Index,
                          email_options=email_options,
                          email_id=email_id,
                          dry_run=dry_run,
-                         local=local,
-                         config=config)
+                         local=local)
     return 0
 
 
@@ -532,7 +640,6 @@ def submit_command(index: Index,
 @pbs_email_id
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
-@ui.config_option_exposed
 @ui.verbose_option
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
@@ -543,8 +650,7 @@ def generate(index: Index,
              email_options: str,
              email_id: str,
              dry_run: bool,
-             local: bool,
-             config: tuple):
+             local: bool):
     """
     Generate Tasks into file and Queue PBS job to process them.
 
@@ -557,8 +663,7 @@ def generate(index: Index,
                             email_options,
                             email_id,
                             dry_run,
-                            local,
-                            config)
+                            local)
 
 
 def generate_command(index: Index,
@@ -568,15 +673,34 @@ def generate_command(index: Index,
                      email_options: str,
                      email_id: str,
                      dry_run: bool,
-                     local: bool,
-                     config: tuple):
+                     local: bool):
     _LOG.info('Tag: %s', tag)
 
-    config_fc, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
+    config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
+    fc_tasks = _make_fc_tasks(index, config, query=task_desc.parameters.query)
+    fc_tasks2 = _make_fc_tasks_datasets(index, config, query=task_desc.parameters.query)
+
+    #fixme remove this so the tasks are generators
+    fc_tasks = tuple(fc_tasks)
+    fc_tasks2 = tuple(fc_tasks2)
+    print('***********   combined task1            ********************')
+    print(fc_tasks)
+    print('***********   combined task2            ********************')
+    print(fc_tasks2)
+    if len(fc_tasks) == len(fc_tasks2):
+        for (t1, t2) in zip(fc_tasks, fc_tasks2):
+            t1.update(t2)
+        print('***********   combined tasks            ********************')
+        print(fc_tasks)
+    else:
+        print('**** different lengths')
+
+    # _LOG.info('Crashing out sooner!')
+    # raise SystemExit
 
     num_tasks_saved = task_app.save_tasks(
-        config_fc,
-        _make_fc_tasks(index, config_fc, query=task_desc.parameters.query),
+        config,
+        fc_tasks,
         task_desc.runtime_state.task_serialisation_path
     )
     _LOG.info('Found %d tasks', num_tasks_saved)
@@ -609,7 +733,6 @@ def generate_command(index: Index,
                 '--task-desc', str(task_desc_file),
                 '--celery', 'pbs-launch',
                 '--tag', tag,
-                '--config', config[0],
                 dry_run_option,
             ],
             qsub_params=dict(
@@ -629,6 +752,7 @@ def generate_command(index: Index,
                     task_desc_file=str(task_desc_file),
                     runner=runner)
     return 0
+
 
 
 def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:
