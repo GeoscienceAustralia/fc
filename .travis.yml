@@ -8,21 +8,21 @@ addons:
     apt:
       sources:
         - sourceline: ppa:nextgis/ppa
-        packages:
-            - gdal-bin
-            - gdal-data
-            - libgdal-dev
-            - libgdal20
-            - libudunits2-0
-            - gfortran
-            - libatlas-base-dev
-            - libatlas-dev
-            - liblapack-dev
-            - libproj-dev
-            - libxml2-dev
-            - libxslt-dev
-            - pandoc
-            - shellcheck
+      packages:
+          - gdal-bin
+          - gdal-data
+          - libgdal-dev
+          - libgdal20
+          - libudunits2-0
+          - gfortran
+          - libatlas-base-dev
+          - libatlas-dev
+          - liblapack-dev
+          - libproj-dev
+          - libxml2-dev
+          - libxslt-dev
+          - pandoc
+          - shellcheck
 
 cache:
     apt: true
