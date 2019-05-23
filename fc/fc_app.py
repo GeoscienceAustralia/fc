@@ -30,6 +30,7 @@ from datacube.index._api import Index
 from datacube.model import DatasetType
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.testutils import io
+from datacube.utils import uri_to_local_path
 
 try:
     from datacube.drivers.netcdf import write_dataset_to_netcdf
@@ -91,7 +92,6 @@ def _make_fc_config(index: Index, config: dict, dry_run):
         config['task_timestamp'] = int(time_now())
 
     measurements = index.products.get_by_name(config['nbart_product'].name).measurements.keys()
-    print(measurements)
 
     #band_mapping
     config['load_bands'] = None
@@ -103,9 +103,6 @@ def _make_fc_config(index: Index, config: dict, dry_run):
             config['band_mapping'] = guess['rename']
             break
 
-
-    print (config['load_bands'])
-    print (config['band_mapping'])
 
     #fixme need to remove! crashing out to save time
     # _LOG.info('Crashing out _make_fc_config!')
@@ -178,9 +175,35 @@ def _get_filename(config, tile_index, sources):
                                      start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
                                      end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'),
                                      version=config['task_timestamp'])
+def _split_concat(source_location, new_location, split_dir):
+    """
+    Add the directory structure from current_location, after the split_dir, to
+    base_location.
+    :param source_location:
+    :param new_location:
+    :param split_dir:
+    :return: File path as a string
+    """
+    sloc = uri_to_local_path(source_location)
+
+    # This will Raises ValueError if split_dir is not present.
+    split_index = sloc.parts.index(split_dir)
+    subpath = Path(*sloc.parts[split_index+1:])
+    return str(Path(new_location
+                    , subpath))
 
 def _get_filename_dataset(config, sources):
-    return None
+    region_code = getattr(sources.metadata, 'region_code', None)
+    if region_code is None:
+        filename = _split_concat(sources.local_uri, config['location'], config['source_directory'])
+    else:
+        # do the file_path_template.format
+        file_path_template = str(Path(config['location'], config['file_path_template']))
+        filename = file_path_template.format(region_code=region_code,
+                                         start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
+                                         end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'),
+                                         version=config['task_timestamp'])
+    return filename
 
 def _make_fc_tasks(index: Index,
                    config: dict,
@@ -268,9 +291,11 @@ def _make_fc_tasks_datasets(index: Index,
     dataset_gen = datasets_that_need_to_be_processed(index, input_product.name, output_product.name)
 
     #_LOG.info('%d %s tiles in %s', len(tiles_out), output_product.name, str(repr(query)))
+
     return (
         dict(
-            dataset=dataset
+            dataset=dataset,
+            filename_dataset=_get_filename_dataset(config, dataset)
         )
         for dataset in dataset_gen
     )
@@ -350,8 +375,8 @@ def _do_fc_task(config, task):
     # _LOG.info('Crashing out!')
     # raise SystemExit
 
-    fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
-
+    # fixme uncomment to run the actual algo
+    #fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
 
 
     def _make_dataset(labels, sources):
@@ -365,6 +390,16 @@ def _do_fc_task(config, task):
                                app_info=_get_app_metadata(config),
                                valid_data=polygon_from_sources_extents(sources, nbart.geobox))
         return dataset
+    print(nbart_tile.sources[0])
+    print ('***************  task[dataset]   ************************')
+    print (task['dataset'])
+    print ('***************  sr_dataset_wt   ************************')
+    print (sr_dataset_wt)
+    # assert nbart_tile.sources == sr_dataset_wt
+
+    # #fixme need to remove! crashing out to save time
+    _LOG.info('Crashing out!')
+    raise SystemExit
 
     datasets = xr_apply(nbart_tile.sources, _make_dataset, dtype='O')
     fc_dataset['dataset'] = datasets_to_doc(datasets)

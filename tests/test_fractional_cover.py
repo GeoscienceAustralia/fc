@@ -3,12 +3,14 @@ Test functions for Fractional Cover App components
 """
 import os
 from pathlib import Path
+import datetime
 
 import xarray as xr
 
 import datacube.utils.geometry
 from datacube.model import Measurement
-from fc.fc_app import tif_filenames, all_files_exist, _estimate_job_size
+from fc.fc_app import tif_filenames, all_files_exist, _estimate_job_size, \
+    _get_filename_dataset, _split_concat
 from fc.fractional_cover import fractional_cover
 
 
@@ -102,3 +104,50 @@ def test_estimate_job_size():
     nodes, wall_time_mins = _estimate_job_size(60)
     assert nodes == 1
     assert wall_time_mins == '20m'
+
+def test_get_filename_dataset():
+
+    class Fake(object):
+        pass
+
+    source = Fake()
+    source.metadata = Fake()
+    source.metadata.region_code = '097045'
+    source.time = Fake()
+    source.time.values = (datetime.date(2019, 4, 13), datetime.date(2019, 4, 14))
+    template = 'LS8_OLI_FC/{region_code}_{start_time}_v{version}.nc'
+    config = {'root_dir_in_new_location': 'LS8_OLI_NBART',
+              'task_timestamp':'the_timestamp',
+              'location': Path('/can/this/be/made/up'),
+              'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
+
+    result = _get_filename_dataset(config, source)
+    actual = '/can/this/be/made/up/LS8_OLI_FC/097045_20190413000000000000_vthe_timestamp.nc'
+    assert result == actual
+
+def test_split_concat():
+    source_location = 'file:///can/this/be/made/up/LS8_OLI_FC/07/whythis/foo.nc'
+    new_location = '/this/is/where/the/output/goes'
+    split_dir = 'LS8_OLI_FC'
+    filename = _split_concat(source_location, new_location, split_dir)
+    actual = '/this/is/where/the/output/goes/07/whythis/foo.nc'
+    assert filename == actual
+
+
+def test_get_filename_datasetII():
+
+    class Fake(object):
+        pass
+
+    source = Fake()
+    source.metadata = None
+    source.local_uri = 'file:///can/this/be/made/up/LS8_OLI_NBART/07/whythis/foo.nc'
+    template = 'LS8_OLI_FC/{region_code}_{start_time}_v{version}.nc'
+    config = {'source_directory': 'LS8_OLI_NBART',
+              'task_timestamp':'the_timestamp',
+              'location': Path('/can/this/be/made/up'),
+              'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
+
+    result = _get_filename_dataset(config, source)
+    actual = '/can/this/be/made/up/07/whythis/foo.nc'
+    assert result == actual
