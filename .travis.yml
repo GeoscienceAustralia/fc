@@ -6,12 +6,17 @@ python:
 sudo: true
 addons:
     apt:
+      sources:
+        - sourceline: ppa:nextgis/ppa
         packages:
             - gdal-bin
+            - gdal-data
+            - libgdal-dev
+            - libgdal20
+            - libudunits2-0
             - gfortran
             - libatlas-base-dev
             - libatlas-dev
-            - libgdal1-dev
             - liblapack-dev
             - libproj-dev
             - libxml2-dev
@@ -32,6 +37,7 @@ git:
 install:
     - export CPLUS_INCLUDE_PATH="/usr/include/gdal"
     - export C_INCLUDE_PATH="/usr/include/gdal"
+    - export GDAL_DATA="$(gdal-config --datadir)"
     - travis_retry pip install pylint==1.7.4 yamllint pytest-cov pycodestyle coveralls
     - gdal-config --version
     - pip install GDAL=="$(gdal-config --version)"
