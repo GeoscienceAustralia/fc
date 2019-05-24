@@ -358,32 +358,32 @@ def _do_fc_task(config, task):
     variable_params = config['variable_params']
     output_product = config['fc_product']
 
-
-    file_path = Path(task['filename'])
     file_path = Path(task['filename_dataset'])
 
     uri, band_uris = calc_uris(file_path, variable_params)
-
-    nbart_tile: Tile = task['nbart']
-    nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
-
     output_measurements = config['fc_product'].measurements.values()
 
     # The new bit
     sr_dataset_wt = io.native_load(task['dataset'], measurements=config['load_bands'])
     if config['band_mapping'] is not None:
         sr_dataset_wt = sr_dataset_wt.rename(config['band_mapping'] )
-    print(sr_dataset_wt)
-    print(nbart)
-    assert sr_dataset_wt == nbart
-    nbart = sr_dataset_wt
 
+    if 'nbart' in task:
+        # Doing the grid workflow as well.
+        # Check the datasets are the same
+        nbart_tile: Tile = task['nbart']
+        nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
+        assert sr_dataset_wt == nbart
+
+        # Using the old file path
+        file_path = Path(task['filename'])
+
+    nbart = sr_dataset_wt
 
     # #fixme need to remove! crashing out to save time
     # _LOG.info('Crashing out!')
     # raise SystemExit
 
-    # fixme uncomment to run the actual algo
     fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
 
 
@@ -404,9 +404,12 @@ def _do_fc_task(config, task):
     # raise SystemExit
 
     # switching out the gridworkflow data structures
-    # source = nbart_tile.sources
     source = Datacube.group_datasets([task['dataset']], 'time')
-    assert nbart_tile.sources == source
+
+    if 'nbart' in task:
+        # Doing the grid workflow as well.
+        # Check the datasets are the same
+        assert nbart_tile.sources == source
 
     datasets = xr_apply(source, _make_dataset, dtype='O')
     fc_dataset['dataset'] = datasets_to_doc(datasets)
@@ -719,23 +722,26 @@ def generate_command(index: Index,
     _LOG.info('Tag: %s', tag)
 
     config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
-    fc_tasks = _make_fc_tasks(index, config, query=task_desc.parameters.query)
     fc_tasks2 = _make_fc_tasks_datasets(index, config, query=task_desc.parameters.query)
+    if 'skip_grid_workflow' in config and config['skip_grid_workflow'] is True:
+        fc_tasks = fc_tasks2
+    else:
+        fc_tasks = _make_fc_tasks(index, config, query=task_desc.parameters.query)
 
-    #fixme remove this so the tasks are generators
+    # fixme remove this so the tasks are generators
     fc_tasks = tuple(fc_tasks)
     fc_tasks2 = tuple(fc_tasks2)
-    print('***********   combined task1            ********************')
+    print('***********    task1            ********************')
     print(fc_tasks)
-    print('***********   combined task2            ********************')
+    print('***********    task2            ********************')
     print(fc_tasks2)
     if len(fc_tasks) == len(fc_tasks2):
         for (t1, t2) in zip(fc_tasks, fc_tasks2):
             t1.update(t2)
-        print('***********   combined tasks            ********************')
-        print(fc_tasks)
     else:
         print('**** different lengths')
+    print('***********   actual tasks            ********************')
+    print(fc_tasks)
 
     # _LOG.info('Crashing out sooner!')
     # raise SystemExit
