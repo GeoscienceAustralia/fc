@@ -34,6 +34,17 @@ my_cmdclass = versioneer.get_cmdclass(foo)
 my_cmdclass['test'] = PyTest
 #my_cmdclass['sdist'] = sdist # Make sure the sdist includes everything
 
+unmix_ext = Extension(
+    name='fc.unmix.unmiximage',
+    sources=[
+        'fc/unmix/unmiximage.f90',
+        'fc/unmix/constants_NSWC.f90',
+        'fc/unmix/nnls.f90',
+        'fc/unmix/unmiximage.pyf',
+    ],
+)
+unmix_ext.optional = True  # For platforms without FORTRAN, we will fall back to a SciPy implementation
+
 setup(
     name='fc',
     version=versioneer.get_version(),
@@ -61,15 +72,5 @@ setup(
             'datacube-fc = fc.fc_app:cli',
         ]
     },
-    ext_modules=[
-        Extension(
-            name='fc.unmix.unmiximage',
-            sources=[
-                'fc/unmix/unmiximage.f90',
-                'fc/unmix/constants_NSWC.f90',
-                'fc/unmix/nnls.f90',
-                'fc/unmix/unmiximage.pyf',
-            ],
-        )
-    ],
+    ext_modules=[unmix_ext],
 )
