@@ -54,15 +54,16 @@ APP_NAME = 'datacube-fc'
 _LOG = logging.getLogger(__file__)
 CONFIG_DIR = Path(__file__).parent / 'config'
 
-band_mapping = ({'load_bands':('green', 'red', 'nir', 'swir1', 'swir2'),
-                 'rename':None},
-                {'load_bands':('nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2'),
-                 'rename':{'nbart_green':'green',
-                          'nbart_red':'red',
-                          'nbart_nir':'nir',
-                          'nbart_swir_1':'swir1',
-                          'nbart_swir_2':'swir2'}}
-)
+band_mapping = ({'load_bands': ('green', 'red', 'nir', 'swir1', 'swir2'),
+                 'rename': None},
+                {'load_bands': ('nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2'),
+                 'rename': {'nbart_green': 'green',
+                            'nbart_red': 'red',
+                            'nbart_nir': 'nir',
+                            'nbart_swir_1': 'swir1',
+                            'nbart_swir_2': 'swir2'}}
+                )
+
 
 def polygon_from_sources_extents(sources, geobox):
     sources_union = geometry.unary_union(source.extent.to_crs(geobox.crs) for source in sources)
@@ -95,7 +96,7 @@ def _make_fc_config(index: Index, config: dict, dry_run):
 
     measurements = index.products.get_by_name(config['nbart_product'].name).measurements.keys()
 
-    #band_mapping
+    # band_mapping
     config['load_bands'] = None
     config['band_mapping'] = None
     for guess in band_mapping:
@@ -105,8 +106,7 @@ def _make_fc_config(index: Index, config: dict, dry_run):
             config['band_mapping'] = guess['rename']
             break
 
-
-    #fixme need to remove! crashing out to save time
+    # fixme need to remove! crashing out to save time
     # _LOG.info('Crashing out _make_fc_config!')
     # raise SystemExit
 
@@ -176,6 +176,8 @@ def _get_filename(config, tile_index, sources):
                                      start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
                                      end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'),
                                      version=config['task_timestamp'])
+
+
 def _split_concat(source_location, new_location, split_dir):
     """
     Add the directory structure from current_location, after the split_dir, to
@@ -190,8 +192,8 @@ def _split_concat(source_location, new_location, split_dir):
     # This will Raises ValueError if split_dir is not present.
     split_index = sloc.parts.index(split_dir)
     subpath = Path(*sloc.parts[split_index+1:])
-    return str(Path(new_location
-                    , subpath))
+    return str(Path(new_location, subpath))
+
 
 def _get_filename_dataset(config, sources):
     region_code = getattr(sources.metadata, 'region_code', None)
@@ -200,11 +202,13 @@ def _get_filename_dataset(config, sources):
     else:
         # do the file_path_template.format
         file_path_template = str(Path(config['location'], config['file_path_template']))
-        filename = file_path_template.format(region_code=region_code,
-                                         start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
-                                         end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'),
-                                         version=config['task_timestamp'])
+        filename = file_path_template.format(
+            region_code=region_code,
+            start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
+            end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'),
+            version=config['task_timestamp'])
     return filename
+
 
 def _make_fc_tasks(index: Index,
                    config: dict,
@@ -270,7 +274,7 @@ def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers',
 
     for row in cursor.fetchall():
         dataset = index.datasets.get(row[0], include_sources=True)
-        print ('yield')
+        print('yield')
         yield dataset
 
 
@@ -352,8 +356,11 @@ def _do_fc_task(config, task):
     """
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
-    file_path = Path(task['filename'])
     output_product = config['fc_product']
+
+
+    file_path = Path(task['filename'])
+    file_path = Path(task['filename_dataset'])
 
     uri, band_uris = calc_uris(file_path, variable_params)
 
@@ -377,7 +384,7 @@ def _do_fc_task(config, task):
     # raise SystemExit
 
     # fixme uncomment to run the actual algo
-    #fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
+    fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
 
 
     def _make_dataset(labels, sources):
@@ -391,18 +398,17 @@ def _do_fc_task(config, task):
                                app_info=_get_app_metadata(config),
                                valid_data=polygon_from_sources_extents(sources, nbart.geobox))
         return dataset
-    print(nbart_tile.sources[0])
-    print ('***************  task[dataset]   ************************')
-    print (task['dataset'])
-    print ('***************  sr_dataset_wt   ************************')
-    print (sr_dataset_wt)
-    # assert nbart_tile.sources == sr_dataset_wt
 
-    # #fixme need to remove! crashing out to save time
-    _LOG.info('Crashing out!')
-    raise SystemExit
+    # # #fixme need to remove! crashing out to save time
+    # _LOG.info('Crashing out!')
+    # raise SystemExit
 
-    datasets = xr_apply(nbart_tile.sources, _make_dataset, dtype='O')
+    # switching out the gridworkflow data structures
+    # source = nbart_tile.sources
+    source = Datacube.group_datasets([task['dataset']], 'time')
+    assert nbart_tile.sources == source
+
+    datasets = xr_apply(source, _make_dataset, dtype='O')
     fc_dataset['dataset'] = datasets_to_doc(datasets)
 
     base, ext = os.path.splitext(file_path)
