@@ -117,8 +117,6 @@ _MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'cont
 
 
 def _build_variable_params(config: dict) -> dict:
-    chunking = config['storage']['chunking']
-    chunking = [chunking[dim] for dim in config['storage']['dimension_order']]
 
     variable_params = {}
     for mapping in config['measurements']:
@@ -128,7 +126,12 @@ def _build_variable_params(config: dict) -> dict:
             for k, v in mapping.items()
             if k in _MEASUREMENT_KEYS_TO_COPY
         }
-        variable_params[measurement_name]['chunksizes'] = chunking
+
+    if type(config['storage']) is dict and 'chunking' in config['storage']:
+        chunking = config['storage']['chunking']
+        chunking = [chunking[dim] for dim in config['storage']['dimension_order']]
+        for mapping in config['measurements']:
+            variable_params[mapping['name']]['chunksizes'] = chunking
     return variable_params
 
 
@@ -153,7 +156,7 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     output_product_definition['name'] = config['output_product']
     output_product_definition['managed'] = True
     output_product_definition['description'] = config['description']
-    output_product_definition['metadata']['format'] = {'name': config['storage']['driver']}
+    output_product_definition['metadata']['format'] = {'name': 'geotiff'} #{'name': config['storage']['driver']}
     output_product_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
     if hasattr(config['storage'], 'items'):
         output_product_definition['storage'] = {
@@ -206,12 +209,22 @@ def _get_filename_dataset(config, sources):
 
     else:
         # do the file_path_template.format
-        file_path_template = str(Path(config['location'], config['file_path_template']))
-        filename = file_path_template.format(
+        if hasattr(sources.time, 'values'):
+            start_time = to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f')
+            end_time = to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f')
+        else:
+            start_time = to_datetime(sources.time.begin).strftime('%Y%m%d%H%M%S%f')
+            end_time = to_datetime(sources.time.end).strftime('%Y%m%d%H%M%S%f')
+
+        interp = dict(
             region_code=region_code,
-            start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
-            end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'),
+            start_time=start_time,
+            end_time=end_time,
             version=config['task_timestamp'])
+
+        file_path_template = str(Path(config['location'], config['file_path_template']))
+        filename = file_path_template.format(**interp)
+    exit(899)
     return filename
 
 
