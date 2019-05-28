@@ -155,10 +155,11 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     output_product_definition['description'] = config['description']
     output_product_definition['metadata']['format'] = {'name': config['storage']['driver']}
     output_product_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
-    output_product_definition['storage'] = {
-        k: v for (k, v) in config['storage'].items()
-        if k in ('crs', 'tile_size', 'resolution', 'origin')
-    }
+    if hasattr(config['storage'], 'items'):
+        output_product_definition['storage'] = {
+            k: v for (k, v) in config['storage'].items()
+            if k in ('crs', 'tile_size', 'resolution', 'origin')
+        }
     var_def_keys = {'name', 'dtype', 'nodata', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
 
     output_product_definition['measurements'] = [
@@ -199,6 +200,10 @@ def _get_filename_dataset(config, sources):
     region_code = getattr(sources.metadata, 'region_code', None)
     if region_code is None:
         filename = _split_concat(sources.local_uri, config['location'], config['source_directory'])
+        base, _ = os.path.splitext(filename)
+        _, ext = os.path.splitext(config['file_path_template'])
+        filename = base + ext
+
     else:
         # do the file_path_template.format
         file_path_template = str(Path(config['location'], config['file_path_template']))
@@ -328,6 +333,7 @@ def _make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
 
 def calc_uris(file_path, variable_params):
     base, ext = os.path.splitext(file_path)
+
     if ext == '.tif':
         # the file_path value used is highly coupled to
         # dataset_to_geotif_yaml since it's assuming the
