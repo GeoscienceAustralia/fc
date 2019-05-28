@@ -115,7 +115,6 @@ def _ensure_products(app_config: dict, index: Index, dry_run: bool) -> Tuple[Dat
     )
     if not dry_run:
         _LOG.info('Add the output product definition for %s in the database.', output_product.name)
-        _LOG.error(str(output_product.metadata_doc))
         output_product = index.products.add(output_product)
     return source_product, output_product
 
