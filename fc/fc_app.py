@@ -151,17 +151,23 @@ def _ensure_products(app_config: dict, index: Index, dry_run: bool) -> Tuple[Dat
 
 
 def _create_output_definition(config: dict, source_product: DatasetType) -> dict:
+
+
     output_product_definition = deepcopy(source_product.definition)
     output_product_definition['name'] = config['output_product']
     output_product_definition['managed'] = True
     output_product_definition['description'] = config['description']
-    output_product_definition['metadata']['format'] = {'name': 'geotiff'} #{'name': config['storage']['driver']}
     output_product_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
     if hasattr(config['storage'], 'items'):
         output_product_definition['storage'] = {
             k: v for (k, v) in config['storage'].items()
             if k in ('crs', 'tile_size', 'resolution', 'origin')
         }
+        output_product_definition['metadata']['format'] = {'name': config['storage']['driver']}
+    else:
+        # no storage defined
+        output_product_definition['metadata']['format'] = {'name': config['metadata_format']}
+
     var_def_keys = {'name', 'dtype', 'nodata', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
 
     output_product_definition['measurements'] = [
@@ -209,9 +215,11 @@ def _get_filename_dataset(config, sources):
     else:
         # do the file_path_template.format
         if hasattr(sources.time, 'values'):
+            # nc format
             start_time = to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f')
             end_time = to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f')
         else:
+            # data collection upgrade format
             start_time = to_datetime(sources.time.begin).strftime('%Y%m%d%H%M%S%f')
             end_time = to_datetime(sources.time.end).strftime('%Y%m%d%H%M%S%f')
 
@@ -223,7 +231,6 @@ def _get_filename_dataset(config, sources):
 
         file_path_template = str(Path(config['location'], config['file_path_template']))
         filename = file_path_template.format(**interp)
-    exit(899)
     return filename
 
 
