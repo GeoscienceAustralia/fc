@@ -3,10 +3,12 @@ Entry point for producing Fractional Cover products.
 
 Specifically intended for running in the PBS job queue system at the NCI.
 
-The three entry points are:
-1. datacube-fc submit
-2. datacube-fc generate
-3. datacube-fc run
+Following cli commands are supported:
+1. datacube-fc list
+2. datacube-fc ensure-products
+3. datacube-fc submit
+4. datacube-fc generate
+5. datacube-fc run
 """
 import logging
 import os
