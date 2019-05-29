@@ -533,7 +533,7 @@ def _estimate_job_size(num_tasks):
     """
     max_nodes = 20
     cores_per_node = 16
-    task_time_mins = 5
+    task_time_mins = 15 # it was 5
 
     # TODO: Tune this code:
     # "We have found for best throughput 25 nodes can produce about 11.5 tiles per minute per node,
