@@ -756,17 +756,9 @@ def generate_command(index: Index,
     # fixme remove this so the tasks are generators
     fc_tasks = tuple(fc_tasks)
     fc_tasks2 = tuple(fc_tasks2)
-    print('***********    task1            ********************')
-    print(fc_tasks)
-    print('***********    task2            ********************')
-    print(fc_tasks2)
     if len(fc_tasks) == len(fc_tasks2):
         for (t1, t2) in zip(fc_tasks, fc_tasks2):
             t1.update(t2)
-    else:
-        print('**** different lengths')
-    print('***********   actual tasks            ********************')
-    print(fc_tasks)
 
     # _LOG.info('Crashing out sooner!')
     # raise SystemExit
