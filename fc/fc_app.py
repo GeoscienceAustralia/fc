@@ -870,7 +870,7 @@ def run_command(index,
 
     if dry_run:
         _LOG.info('Starting Fractional Cover Dry Run...')
-        task_app.check_existing_files((task['filename'] for task in tasks))
+        task_app.check_existing_files((task['filename_dataset'] for task in tasks))
         return 0
 
     _LOG.info('Starting Fractional Cover processing...')
