@@ -107,7 +107,7 @@ metadata:
         code: LANDSAT_8
     product_type: fractional_cover
 storage:
-  driver: NetCDF CF
+  driver: NetCDF
 
   crs: EPSG:3577
   tile_size:
