@@ -383,8 +383,7 @@ def _estimate_job_size(num_tasks):
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
 @task_app.app_config_option
-#@ui.config_option
-@click.option('--config', '--config_file', '-C', multiple=True, default='', callback=ui._set_config)
+@ui.config_option_exposed
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
 def submit(index: Index,
@@ -398,7 +397,7 @@ def submit(index: Index,
            email_id: str,
            dry_run: bool,
            local: bool,
-           config: str):
+           config: tuple):
     """
     Kick off two stage PBS job
 
@@ -533,7 +532,7 @@ def submit_command(index: Index,
 @pbs_email_id
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
-@click.option('--config', '--config_file', '-C', multiple=True, default='', callback=ui._set_config)
+@ui.config_option_exposed
 @ui.verbose_option
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
@@ -630,7 +629,6 @@ def generate_command(index: Index,
                     task_desc_file=str(task_desc_file),
                     runner=runner)
     return 0
-
 
 
 def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:
