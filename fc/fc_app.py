@@ -235,38 +235,6 @@ def _get_filename_dataset(config, sources):
     return filename
 
 
-def _make_fc_tasks(index: Index,
-                   config: dict,
-                   query: dict):
-    """
-    Generate an iterable of 'tasks', matching the provided filter parameters.
-    Tasks can be generated for:
-    - all of time
-    - 1 particular year
-    - a range of years
-    """
-    input_product = config['nbart_product']
-    output_product = config['fc_product']
-
-    workflow = GridWorkflow(index, output_product.grid_spec)
-
-    tiles_in = workflow.list_tiles(product=input_product.name, **query)
-    # _LOG.info(f"{len(tiles_in)} {input_product.name} tiles in {repr(query)}")
-    _LOG.info('%d %s tiles in %s', len(tiles_in), input_product.name, str(repr(query)))
-    # _LOG.info('Found %d tasks', num_tasks_saved)
-    tiles_out = workflow.list_tiles(product=output_product.name, **query)
-    # _LOG.info(f"{len(tiles_out)} {output_product.name} tiles in {repr(query)}")
-    _LOG.info('%d %s tiles in %s', len(tiles_out), output_product.name, str(repr(query)))
-    return (
-        dict(
-            nbart=workflow.update_tile_lineage(tile),
-            tile_index=key,
-            filename=_get_filename(config, tile_index=key, sources=tile.sources)
-        )
-        for key, tile in tiles_in.items() if key not in tiles_out
-    )
-
-
 def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers', derived_product='ls8_fc_albers'):
     """
     Yield the ids of datasets of type ``source_product``, which have not been processed into type ``derived_product``.
@@ -303,7 +271,7 @@ def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers',
         yield dataset
 
 
-def _make_fc_tasks_datasets(index: Index,
+def _make_fc_tasks(index: Index,
                    config: dict,
                    query: dict):
     """
@@ -748,21 +716,7 @@ def generate_command(index: Index,
     _LOG.info('Tag: %s', tag)
 
     config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
-    fc_tasks2 = _make_fc_tasks_datasets(index, config, query=task_desc.parameters.query)
-    if 'skip_grid_workflow' in config and config['skip_grid_workflow'] is True:
-        fc_tasks = fc_tasks2
-    else:
-        fc_tasks = _make_fc_tasks(index, config, query=task_desc.parameters.query)
-
-    # fixme remove this so the tasks are generators
-    fc_tasks = tuple(fc_tasks)
-    fc_tasks2 = tuple(fc_tasks2)
-    if len(fc_tasks) == len(fc_tasks2):
-        for (t1, t2) in zip(fc_tasks, fc_tasks2):
-            t1.update(t2)
-
-    # _LOG.info('Crashing out sooner!')
-    # raise SystemExit
+    fc_tasks = _make_fc_tasks(index, config, query=task_desc.parameters.query)
 
     num_tasks_saved = task_app.save_tasks(
         config,
