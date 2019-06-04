@@ -492,7 +492,7 @@ def _estimate_job_size(num_tasks):
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
 @task_app.app_config_option
-@ui.config_option
+@ui.config_option_exposed
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
 def submit(index: Index,
@@ -505,7 +505,8 @@ def submit(index: Index,
            email_options: str,
            email_id: str,
            dry_run: bool,
-           local: bool):
+           local: bool,
+           config: tuple):
     """
     Kick off two stage PBS job
 
@@ -540,7 +541,8 @@ def submit(index: Index,
                    email_options,
                    email_id,
                    dry_run,
-                   local)
+                   local,
+                   config)
     return 0
 
 
@@ -554,7 +556,8 @@ def submit_command(index: Index,
                    email_options: str,
                    email_id: str,
                    dry_run: bool,
-                   local: bool):
+                   local: bool,
+                   config: tuple):
     """
     Kick off a two stage PBS job.
 
@@ -605,6 +608,7 @@ def submit_command(index: Index,
                 '--log-queries',
                 '--email-id', email_id,
                 '--email-options', email_options,
+                '--config', config[0],
                 dry_run_option,
             ],
             qsub_params=dict(
@@ -624,7 +628,8 @@ def submit_command(index: Index,
                          email_options=email_options,
                          email_id=email_id,
                          dry_run=dry_run,
-                         local=local)
+                         local=local,
+                         config=config)
     return 0
 
 
@@ -639,6 +644,7 @@ def submit_command(index: Index,
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
 @ui.verbose_option
+@ui.config_option_exposed
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
 def generate(index: Index,
@@ -648,7 +654,8 @@ def generate(index: Index,
              email_options: str,
              email_id: str,
              dry_run: bool,
-             local: bool):
+             local: bool,
+             config: tuple):
     """
     Generate Tasks into file and Queue PBS job to process them.
 
@@ -661,7 +668,8 @@ def generate(index: Index,
                             email_options,
                             email_id,
                             dry_run,
-                            local)
+                            local,
+                            config)
 
 
 def generate_command(index: Index,
@@ -671,14 +679,15 @@ def generate_command(index: Index,
                      email_options: str,
                      email_id: str,
                      dry_run: bool,
-                     local: bool):
+                     local: bool,
+                     config: tuple):
     _LOG.info('Tag: %s', tag)
 
-    config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
-    fc_tasks = _make_fc_tasks(index, config, query=task_desc.parameters.query)
+    config_fc, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
+    fc_tasks = _make_fc_tasks(index, config_fc, query=task_desc.parameters.query)
 
     num_tasks_saved = task_app.save_tasks(
-        config,
+        config_fc,
         fc_tasks,
         task_desc.runtime_state.task_serialisation_path
     )
@@ -712,6 +721,7 @@ def generate_command(index: Index,
                 '--task-desc', str(task_desc_file),
                 '--celery', 'pbs-launch',
                 '--tag', tag,
+                '--config', config[0],
                 dry_run_option,
             ],
             qsub_params=dict(
