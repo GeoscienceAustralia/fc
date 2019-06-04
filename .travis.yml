@@ -45,6 +45,7 @@ install:
     - travis_retry pip install cloudpickle
     - travis_retry pip install git+git://github.com/GeoscienceAustralia/eo-datasets.git
     - travis_retry pip install git+git://github.com/GeoscienceAustralia/digitalearthau.git
+      - travis_retry pip install git+git://github.com/opendatacube/datacube-core.git
     - travis_retry pip install -e .
     # For debugging
     - pip freeze
