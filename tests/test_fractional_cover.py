@@ -105,6 +105,7 @@ def test_estimate_job_size():
     assert nodes == 1
     assert wall_time_mins == '20m'
 
+
 def test_get_filename_dataset():
 
     class Fake(object):
@@ -117,13 +118,14 @@ def test_get_filename_dataset():
     source.time.values = (datetime.date(2019, 4, 13), datetime.date(2019, 4, 14))
     template = 'LS8_OLI_FC/{region_code}_{start_time}_v{version}.nc'
     config = {'root_dir_in_new_location': 'LS8_OLI_NBART',
-              'task_timestamp':'the_timestamp',
+              'task_timestamp': 'the_timestamp',
               'location': Path('/can/this/be/made/up'),
               'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
 
     result = _get_filename_dataset(config, source)
     actual = '/can/this/be/made/up/LS8_OLI_FC/097045_20190413000000000000_vthe_timestamp.nc'
     assert result == actual
+
 
 def test_split_concat():
     source_location = 'file:///can/this/be/made/up/LS8_OLI_FC/07/whythis/foo.nc'
@@ -134,7 +136,7 @@ def test_split_concat():
     assert filename == actual
 
 
-def test_get_filename_datasetII():
+def test_get_filename_dataset2():
 
     class Fake(object):
         pass
@@ -144,7 +146,7 @@ def test_get_filename_datasetII():
     source.local_uri = 'file:///can/this/be/made/up/LS8_OLI_NBART/07/whythis/foo.nc'
     template = 'LS8_OLI_FC/{region_code}_{start_time}_v{version}.nc'
     config = {'source_directory': 'LS8_OLI_NBART',
-              'task_timestamp':'the_timestamp',
+              'task_timestamp': 'the_timestamp',
               'location': Path('/can/this/be/made/up'),
               'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
 
