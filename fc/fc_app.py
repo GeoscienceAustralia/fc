@@ -26,7 +26,6 @@ from math import ceil
 from pandas import to_datetime
 
 from datacube import Datacube
-from datacube.api.grid_workflow import GridWorkflow, Tile
 from datacube.api.query import Query
 from datacube.index._api import Index
 from datacube.model import DatasetType
@@ -180,14 +179,6 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     return output_product_definition
 
 
-def _get_filename(config, tile_index, sources):
-    file_path_template = str(Path(config['location'], config['file_path_template']))
-    return file_path_template.format(tile_index=tile_index,
-                                     start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
-                                     end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'),
-                                     version=config['task_timestamp'])
-
-
 def _split_concat(source_location, new_location, split_dir):
     """
     Add the directory structure from current_location, after the split_dir, to
@@ -205,7 +196,7 @@ def _split_concat(source_location, new_location, split_dir):
     return str(Path(new_location, subpath))
 
 
-def _get_filename_dataset(config, sources):
+def _get_filename(config, sources):
     region_code = getattr(sources.metadata, 'region_code', None)
     if region_code is None:
         filename = _split_concat(sources.local_uri, config['location'], config['source_directory'])
@@ -283,20 +274,17 @@ def _make_fc_tasks(index: Index,
     """
     input_product = config['nbart_product']
     output_product = config['fc_product']
-    print (input_product)
-    print (output_product)
 
     dataset_gen = datasets_that_need_to_be_processed(index, input_product.name, output_product.name)
 
-    #_LOG.info('%d %s tiles in %s', len(tiles_out), output_product.name, str(repr(query)))
-
-    return (
+    return(
         dict(
             dataset=dataset,
-            filename_dataset=_get_filename_dataset(config, dataset)
+            filename_dataset=_get_filename(config, dataset)
         )
         for dataset in dataset_gen
     )
+
 
 def _get_app_metadata(config):
     doc = {
@@ -312,7 +300,7 @@ def _get_app_metadata(config):
     return doc
 
 
-def _make_fc_tile(nbart: xarray.Dataset, measurements, regression_coefficients):
+def run_fc(nbart: xarray.Dataset, measurements, regression_coefficients):
     input_tile = nbart.squeeze('time').drop('time')
     data = fractional_cover(input_tile, measurements, regression_coefficients)
     output_tile = unsqueeze_dataset(data, 'time', nbart.time.values[0])
@@ -357,29 +345,11 @@ def _do_fc_task(config, task):
     uri, band_uris = calc_uris(file_path, variable_params)
     output_measurements = config['fc_product'].measurements.values()
 
-    # The new bit
-    sr_dataset_wt = io.native_load(task['dataset'], measurements=config['load_bands'])
+    nbart = io.native_load(task['dataset'], measurements=config['load_bands'])
     if config['band_mapping'] is not None:
-        sr_dataset_wt = sr_dataset_wt.rename(config['band_mapping'] )
+        nbart = nbart.rename(config['band_mapping'])
 
-    if 'nbart' in task:
-        # Doing the grid workflow as well.
-        # Check the datasets are the same
-        nbart_tile: Tile = task['nbart']
-        nbart = GridWorkflow.load(nbart_tile, ['green', 'red', 'nir', 'swir1', 'swir2'])
-        assert sr_dataset_wt == nbart
-
-        # Using the old file path
-        file_path = Path(task['filename'])
-
-    nbart = sr_dataset_wt
-
-    # #fixme need to remove! crashing out to save time
-    # _LOG.info('Crashing out!')
-    # raise SystemExit
-
-    fc_dataset = _make_fc_tile(nbart, output_measurements, config.get('sensor_regression_coefficients'))
-
+    fc_dataset = run_fc(nbart, output_measurements, config.get('sensor_regression_coefficients'))
 
     def _make_dataset(labels, sources):
         assert sources
@@ -393,17 +363,7 @@ def _do_fc_task(config, task):
                                valid_data=polygon_from_sources_extents(sources, nbart.geobox))
         return dataset
 
-    # # #fixme need to remove! crashing out to save time
-    # _LOG.info('Crashing out!')
-    # raise SystemExit
-
-    # switching out the gridworkflow data structures
     source = Datacube.group_datasets([task['dataset']], 'time')
-
-    if 'nbart' in task:
-        # Doing the grid workflow as well.
-        # Check the datasets are the same
-        assert nbart_tile.sources == source
 
     datasets = xr_apply(source, _make_dataset, dtype='O')
     fc_dataset['dataset'] = datasets_to_doc(datasets)
@@ -502,7 +462,7 @@ def _estimate_job_size(num_tasks):
     """
     max_nodes = 20
     cores_per_node = 16
-    task_time_mins = 15 # it was 5
+    task_time_mins = 15    # it was 5
 
     # TODO: Tune this code:
     # "We have found for best throughput 25 nodes can produce about 11.5 tiles per minute per node,
@@ -772,7 +732,6 @@ def generate_command(index: Index,
                     task_desc_file=str(task_desc_file),
                     runner=runner)
     return 0
-
 
 
 def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:
