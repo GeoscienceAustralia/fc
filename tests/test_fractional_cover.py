@@ -10,7 +10,7 @@ import xarray as xr
 import datacube.utils.geometry
 from datacube.model import Measurement
 from fc.fc_app import tif_filenames, all_files_exist, _estimate_job_size, \
-    _get_filename_dataset, _split_concat
+    _get_filename, _split_concat
 from fc.fractional_cover import fractional_cover
 
 
@@ -103,10 +103,10 @@ def test_all_files_exist():
 def test_estimate_job_size():
     nodes, wall_time_mins = _estimate_job_size(60)
     assert nodes == 1
-    assert wall_time_mins == '20m'
+    assert wall_time_mins == '60m'
 
 
-def test_get_filename_dataset():
+def test_get_filename():
 
     class Fake(object):
         pass
@@ -122,7 +122,7 @@ def test_get_filename_dataset():
               'location': Path('/can/this/be/made/up'),
               'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
 
-    result = _get_filename_dataset(config, source)
+    result = _get_filename(config, source)
     actual = '/can/this/be/made/up/LS8_OLI_FC/097045_20190413000000000000_vthe_timestamp.nc'
     assert result == actual
 
@@ -136,7 +136,7 @@ def test_split_concat():
     assert filename == actual
 
 
-def test_get_filename_dataset2():
+def test_get_filename2():
 
     class Fake(object):
         pass
@@ -150,6 +150,6 @@ def test_get_filename_dataset2():
               'location': Path('/can/this/be/made/up'),
               'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
 
-    result = _get_filename_dataset(config, source)
+    result = _get_filename(config, source)
     actual = '/can/this/be/made/up/07/whythis/foo.nc'
     assert result == actual
