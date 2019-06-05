@@ -12,6 +12,7 @@ Following cli commands are supported:
 """
 import logging
 import os
+import re
 from copy import deepcopy
 from datetime import datetime
 from functools import partial
@@ -151,8 +152,6 @@ def _ensure_products(app_config: dict, index: Index, dry_run: bool) -> Tuple[Dat
 
 
 def _create_output_definition(config: dict, source_product: DatasetType) -> dict:
-
-
     output_product_definition = deepcopy(source_product.definition)
     output_product_definition['name'] = config['output_product']
     output_product_definition['managed'] = True
@@ -179,50 +178,46 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     return output_product_definition
 
 
-def _split_concat(source_location, new_location, split_dir):
-    """
-    Add the directory structure from current_location, after the split_dir, to
-    base_location.
-    :param source_location:
-    :param new_location:
-    :param split_dir:
-    :return: File path as a string
-    """
-    sloc = uri_to_local_path(source_location)
+def get_tile_index(regex, location):
 
-    # This will Raises ValueError if split_dir is not present.
-    split_index = sloc.parts.index(split_dir)
-    subpath = Path(*sloc.parts[split_index+1:])
-    return str(Path(new_location, subpath))
+    pattern = re.compile(regex)
+    match = pattern.search(location)
+    if match:
+        tile_index0 = match.group('tile_index0')
+        tile_index1 = match.group('tile_index1')
+    else:
+        tile_index0 = '999'
+        tile_index1 = '999'
+    return (tile_index0, tile_index1)
 
 
 def _get_filename(config, sources):
     region_code = getattr(sources.metadata, 'region_code', None)
-    if region_code is None:
-        filename = _split_concat(sources.local_uri, config['location'], config['source_directory'])
-        base, _ = os.path.splitext(filename)
-        _, ext = os.path.splitext(config['file_path_template'])
-        filename = base + ext
 
+    # do the file_path_template.format
+    if hasattr(sources.time, 'values'):
+        # nc format
+        start_time = to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f')
+        end_time = to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f')
     else:
-        # do the file_path_template.format
-        if hasattr(sources.time, 'values'):
-            # nc format
-            start_time = to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f')
-            end_time = to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f')
-        else:
-            # data collection upgrade format
-            start_time = to_datetime(sources.time.begin).strftime('%Y%m%d%H%M%S%f')
-            end_time = to_datetime(sources.time.end).strftime('%Y%m%d%H%M%S%f')
+        # data collection upgrade format
+        start_time = to_datetime(sources.time.begin).strftime('%Y%m%d%H%M%S%f')
+        end_time = to_datetime(sources.time.end).strftime('%Y%m%d%H%M%S%f')
 
-        interp = dict(
-            region_code=region_code,
-            start_time=start_time,
-            end_time=end_time,
-            version=config['task_timestamp'])
+    tile_index=None
+    if '{tile_index[' in config['file_path_template']:
+        tile_index = get_tile_index(config['tile_index_regex'], sources.local_uri)
 
-        file_path_template = str(Path(config['location'], config['file_path_template']))
-        filename = file_path_template.format(**interp)
+    interp = dict(
+        tile_index=tile_index,
+        region_code=region_code,
+        start_time=start_time,
+        end_time=end_time,
+        version=config['task_timestamp'],
+        fucked=None)
+
+    file_path_template = str(Path(config['location'], config['file_path_template']))
+    filename = file_path_template.format(**interp)
     return filename
 
 
@@ -775,9 +770,7 @@ def run(index,
         dry_run: bool,
         tag: str,
         task_desc_file: str,
-        qsub: QSubLauncher,
-        runner: TaskRunner,
-        *args, **kwargs):
+        runner: TaskRunner):
     """
     Process generated task file. If dry run is enabled, only check for the existing files
     """
