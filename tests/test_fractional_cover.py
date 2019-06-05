@@ -10,7 +10,7 @@ import xarray as xr
 import datacube.utils.geometry
 from datacube.model import Measurement
 from fc.fc_app import tif_filenames, all_files_exist, _estimate_job_size, \
-    _get_filename, _split_concat
+    _get_filename
 from fc.fractional_cover import fractional_cover
 
 
@@ -127,29 +127,24 @@ def test_get_filename():
     assert result == actual
 
 
-def test_split_concat():
-    source_location = 'file:///can/this/be/made/up/LS8_OLI_FC/07/whythis/foo.nc'
-    new_location = '/this/is/where/the/output/goes'
-    split_dir = 'LS8_OLI_FC'
-    filename = _split_concat(source_location, new_location, split_dir)
-    actual = '/this/is/where/the/output/goes/07/whythis/foo.nc'
-    assert filename == actual
-
-
-def test_get_filename2():
+def test_get_filename3():
 
     class Fake(object):
         pass
 
     source = Fake()
+    source.time = Fake()
+    source.time.values = (datetime.date(2019, 4, 13), datetime.date(2019, 4, 14))
     source.metadata = None
-    source.local_uri = 'file:///can/this/be/made/up/LS8_OLI_NBART/07/whythis/foo.nc'
-    template = 'LS8_OLI_FC/{region_code}_{start_time}_v{version}.nc'
+    source.local_uri = 'file///g/data/rs0/datacube/002/LS8_OLI_NBART/15_-43/LS8_OLI_NBART_3577_15_-43_20190412234447000000_v1556301492.nc'
+    template =  '_{tile_index[0]}_{tile_index[1]}_'
+    tile_index_regex = '^(.+)/LS8_OLI_NBART_[0-9]*_(?P<tile_index0>-?[0-9]*)_(?P<tile_index1>-?[0-9]*)_[_v0-9]*.*$'
     config = {'source_directory': 'LS8_OLI_NBART',
               'task_timestamp': 'the_timestamp',
               'location': Path('/can/this/be/made/up'),
-              'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
-
+              'file_path_template': template,
+              'tile_index_regex': tile_index_regex}
     result = _get_filename(config, source)
-    actual = '/can/this/be/made/up/07/whythis/foo.nc'
+    actual = '_15_-43_'
+    actual = '/can/this/be/made/up/_15_-43_'
     assert result == actual
