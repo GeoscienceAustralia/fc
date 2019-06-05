@@ -8,6 +8,7 @@ location: '/g/data/fk4/datacube/002/FC/'
 file_path_template: 'LS5_TM_FC/{tile_index[0]}_{tile_index[1]}/LS5_TM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.nc'
 partial_ncml_path_template: 'LS5_TM_FC/{tile_index[0]}_{tile_index[1]}/LS5_TM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}.ncml'
 ncml_path_template: 'LS5_TM_FC/LS5_TM_FC_3577_{tile_index[0]}_{tile_index[1]}.ncml'
+tile_index_regex: '^(.+)/LS[578_ETMOLI]*_NBART_[0-9]*_(?P<tile_index0>-?[0-9]*)_(?P<tile_index1>-?[0-9]*)_[_v0-9]*.*$'
 
 global_attributes:
   title: Fractional Cover 25 v2
