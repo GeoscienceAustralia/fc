@@ -78,14 +78,6 @@ global_attributes:
     - Muir, J., Schmidt, M., Tindall, D., Trevithick, R., Scarth, P., Stewart, J., 2011. Guidelines for Field measurement of fractional ground cover: a technical handbook supporting the Australian collaborative land use and management program. Tech. rep., Queensland Department of Environment and Resource Management for the Australian Bureau of Agricultural and Resource Economics and Sciences, Canberra.
     - Scarth, P., Roder, A. and Schmidt, M., 2010. Tracking grazing pressure and climate interaction -  the role of Landsat fractional cover in the time series analysis, Proceedings of the 15th Australasian Remote Sensing & Photogrammetry Conference, viewed 4 January 2011, scribd.com/doc/37455672/15arspc-Submission-140.
     - Schmidt, M., Denham, R. and Scarth, P., 2010. 'Fractional ground cover monitoring of pastures and agricultural areas in Queensland', Proceedings of the 15th Australasian Remote Sensing & Photogrammetry Conference, viewed 4 January 2011, www.scribd.com/doc/37455826/15arspc-Submission-119.
-metadata:
-    format:
-        name: NetCDF
-    instrument:
-        name: TM
-    platform:
-        code: LANDSAT_5
-    product_type: fractional_cover
 storage:
   driver: NetCDF
 
