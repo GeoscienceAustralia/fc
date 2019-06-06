@@ -136,8 +136,8 @@ def test_get_filename3():
     source.time = Fake()
     source.time.values = (datetime.date(2019, 4, 13), datetime.date(2019, 4, 14))
     source.metadata = None
-    source.local_uri = 'file///g/data/rs0/datacube/002/LS8_OLI_NBART/15_-43/LS8_OLI_NBART_3577_15_-43_20190412234447000000_v1556301492.nc'
-    template =  '_{tile_index[0]}_{tile_index[1]}_'
+    source.local_uri = 'file///w-43/LS8_OLI_NBART_3577_15_-43_20190412234447000000_v1556301492.nc'
+    template = '_{tile_index[0]}_{tile_index[1]}_'
     tile_index_regex = '^(.+)/LS8_OLI_NBART_[0-9]*_(?P<tile_index0>-?[0-9]*)_(?P<tile_index1>-?[0-9]*)_[_v0-9]*.*$'
     config = {'source_directory': 'LS8_OLI_NBART',
               'task_timestamp': 'the_timestamp',
@@ -145,6 +145,5 @@ def test_get_filename3():
               'file_path_template': template,
               'tile_index_regex': tile_index_regex}
     result = _get_filename(config, source)
-    actual = '_15_-43_'
     actual = '/can/this/be/made/up/_15_-43_'
     assert result == actual
