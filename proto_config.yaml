@@ -1,0 +1,136 @@
+
+
+input:
+  transform: fc.lib.FCTransform
+
+  sensor_regression_coefficients:
+    blue:
+      - 0.00041
+      - 0.97470
+    green:
+      - 0.00289
+      - 0.99779
+    red:
+      - 0.00274
+      - 1.00446
+    nir:
+      - 0.00004
+      - 0.98906
+    swir1:
+      - 0.00256
+      - 0.99467
+    swir2:
+      - -0.00327
+      - 1.02551
+  input:
+    collate:
+      - transform: apply_mask
+        mask_measurement_name: pixelquality
+        input:
+          juxtapose:
+          - product: ls7_nbar_albers
+          measurements: [red, green, blue]
+          - transform: make_mask
+          input:
+          product: ls7_pq_albers
+          flags:
+          blue_saturated: false
+          cloud_acca: no_cloud
+          cloud_fmask: no_cloud
+          cloud_shadow_acca: no_cloud_shadow
+          cloud_shadow_fmask: no_cloud_shadow
+          contiguous: true
+          green_saturated: false
+          nir_saturated: false
+          red_saturated: false
+          swir1_saturated: false
+          swir2_saturated: false
+          mask_measurement_name: pixelquality
+      - transform: apply_mask
+        mask_measurement_name: pixelquality
+        input:
+          juxtapose:
+          - product: ls8_nbar_albers
+          measurements: [red, green, blue]
+          - transform: make_mask
+          input:
+          product: ls8_pq_albers
+          flags:
+          blue_saturated: false
+          cloud_acca: no_cloud
+          cloud_fmask: no_cloud
+          cloud_shadow_acca: no_cloud_shadow
+          cloud_shadow_fmask: no_cloud_shadow
+          contiguous: true
+          green_saturated: false
+          nir_saturated: false
+          red_saturated: false
+          swir1_saturated: false
+          swir2_saturated: false
+          mask_measurement_name: pixelquality
+
+
+output:
+  product_name: ls8_fc_utm
+  location: '/g/data/u46/users/dsg547/sandpit/odc_testing/a_test'
+  file_path_template: 'LS8_OLI_FC/{tile_index[0]}_{tile_index[1]}/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.tif'
+  product_definition: ls8_fc_utm.yaml
+
+  dataset_doc_template:
+
+    product_type: fractional_cover
+
+measurements:
+  - name: BS
+    src_var: BS
+    units: "percent"
+    dtype: int8
+    nodata: -1
+    zlib: True
+    fletcher32: True
+    attrs:
+      long_name: "Bare ground fraction percentage"
+      comment: "Fraction of bare ground including rock, bare and disturbed soil, within the Landsat pixel as percentages"
+      alias: "bare"
+      coverage_content_type: modelResult
+    aliases: ["bare"]
+  - name: PV
+    src_var: PV
+    units: "percent"
+    dtype: int8
+    nodata: -1
+    zlib: True
+    fletcher32: True
+    attrs:
+      long_name: "Green cover fraction percentage"
+      comment: "Fraction of green cover including green groundcover and green leaf material over all strata, within the Landsat pixel, as percentages"
+      alias: "green"
+      coverage_content_type: modelResult
+    aliases: ["green_veg"]
+  - name: NPV
+    src_var: NPV
+    units: "percent"
+    dtype: int8
+    nodata: -1
+    zlib: True
+    fletcher32: True
+    attrs:
+      long_name: "Non-green cover fraction percentage"
+      comment: "Fraction of non green cover including litter, dead leaf and branches over all strata, within the Landsat pixel, as percentages"
+      alias: "dead"
+      coverage_content_type: modelResult
+    aliases: ["dead_veg"]
+  - name: UE
+    src_var: UE
+    units: "1"
+    dtype: int8
+    nodata: -1
+    zlib: True
+    fletcher32: True
+    attrs:
+      long_name: "Unmixing error"
+      comment: "Eclidean Norm of the Residual Vector"
+      alias: "err"
+      coverage_content_type: qualityInformation
+    aliases: ["err"]
+
