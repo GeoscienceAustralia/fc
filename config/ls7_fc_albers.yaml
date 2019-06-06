@@ -79,7 +79,7 @@ global_attributes:
     - Scarth, P., Roder, A. and Schmidt, M., 2010. Tracking grazing pressure and climate interaction -  the role of Landsat fractional cover in the time series analysis, Proceedings of the 15th Australasian Remote Sensing & Photogrammetry Conference, viewed 4 January 2011, scribd.com/doc/37455672/15arspc-Submission-140.
     - Schmidt, M., Denham, R. and Scarth, P., 2010. 'Fractional ground cover monitoring of pastures and agricultural areas in Queensland', Proceedings of the 15th Australasian Remote Sensing & Photogrammetry Conference, viewed 4 January 2011, www.scribd.com/doc/37455826/15arspc-Submission-119.
 storage:
-  driver: NetCDF CF
+  driver: NetCDF
 
   crs: EPSG:3577
   tile_size:

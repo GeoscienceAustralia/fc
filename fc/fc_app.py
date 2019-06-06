@@ -3,10 +3,12 @@ Entry point for producing Fractional Cover products.
 
 Specifically intended for running in the PBS job queue system at the NCI.
 
-The three entry points are:
-1. datacube-fc submit
-2. datacube-fc generate
-3. datacube-fc run
+Following cli commands are supported:
+1. datacube-fc list
+2. datacube-fc ensure-products
+3. datacube-fc submit
+4. datacube-fc generate
+5. datacube-fc run
 """
 import logging
 import os
@@ -113,7 +115,6 @@ def _ensure_products(app_config: dict, index: Index, dry_run: bool) -> Tuple[Dat
     )
     if not dry_run:
         _LOG.info('Add the output product definition for %s in the database.', output_product.name)
-
         output_product = index.products.add(output_product)
     return source_product, output_product
 
