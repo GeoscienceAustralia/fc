@@ -187,7 +187,7 @@ def get_tile_index(regex, location):
     else:
         tile_index0 = '999'
         tile_index1 = '999'
-    return (tile_index0, tile_index1)
+    return tile_index0, tile_index1
 
 
 def _get_filename(config, sources):
@@ -203,7 +203,7 @@ def _get_filename(config, sources):
         start_time = to_datetime(sources.time.begin).strftime('%Y%m%d%H%M%S%f')
         end_time = to_datetime(sources.time.end).strftime('%Y%m%d%H%M%S%f')
 
-    tile_index=None
+    tile_index = None
     if '{tile_index[' in config['file_path_template']:
         tile_index = get_tile_index(config['tile_index_regex'], sources.local_uri)
 
