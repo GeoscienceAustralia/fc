@@ -5,6 +5,7 @@ TODO:
 - [ ] Error Handling
 
 """
+from io import StringIO
 from typing import Dict
 
 import xarray
@@ -48,7 +49,51 @@ class Transformation:
         return input_measurements
 
 
-class Job:
+class NRTJob:
+    # Database Configuration
+    db_hostname = None
+    db_port = None
+    db_username = None
+    db_password = None
+
+    # SQS config for finding work
+    sqs_queue_url = None
+    sqs_message_prefix = None
+    sqs_poll_time_sec = None
+    job_max_time_sec = None
+    max_job_per_worker = None
+
+    type = None  # wofs or fc
+
+    log_level = None
+
+    # From SQS Message
+    input_file = ''
+
+    # Should be from SQS message but isn't
+    input_s3_bucket = None
+
+    # Output Configuration
+    output_s3_bucket = None
+    output_path = None
+    make_s3_public = None
+    bigtiff = None
+    gdal_tiff_internal_mask = None
+    gdal_tiff_ovr_blocksize = None
+
+    # Hard Coded / assumed
+    # - Output file name generation pattern
+    # - Resolution
+    # - Algorithm - WOfS
+
+    # Looked up from DB
+    # - Input Product
+    # - Input Dataset YAML + Location
+    # -
+
+
+class NCIJob:
+    # Other
     query_pattern = ''
     output_format = ''
     output_path_pattern = ''
@@ -63,6 +108,25 @@ class Job:
 
     def generate_dataset_metadata(self, *input_datasets):
         pass
+
+
+example_task = yaml.safe_load(StringIO('''
+config:
+    output_format: tiff
+    output_path_pattern: s3://dea-public-data/foo/bar/{year}/{tile_id}/{date}-{id}.tif
+    ?? transformation: ??
+    ?? default metadata values: ??
+
+input:
+    input_product: ...
+    input_dataset_yaml: ...
+    input_dataset_location: ...
+
+OR
+
+    virtual_product_definition: ...
+
+'''))
 
 
 def worker(job, transformation):
@@ -82,11 +146,12 @@ def worker(job, transformation):
     input_dataset = next(iter(vdbag.pile))
 
     # write data to disk
-    # compute filename
-    # ensure filepath
-    # write
+        # compute filename
+        # ensure filepath
+        # write
 
     # record dataset record to database
+    # OR NOT
 
 
 def run(query, transformation):
