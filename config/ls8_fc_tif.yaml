@@ -1,13 +1,14 @@
-source_product: ls8_nbart_albers
-output_product: ls8_fc_albers_tif
+source_product: ls8_ard
+output_product: ls8_fc_tif
 
 description: Landsat 8 Fractional Cover 25 metre, 100km tile, Australian Albers Equal Area projection (EPSG:3577)
 product_type: fractional_cover
 
 location: ''
-file_path_template: 'LS8_OLI_FC/{tile_index[0]}_{tile_index[1]}/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.tif'
+file_path_template: 'LS8_OLI_FC/{region_code}/LS8_OLI_FC_3577_{region_code}_{start_time}_v{version}.tif'
 partial_ncml_path_template: 'LS8_OLI_FC/{tile_index[0]}_{tile_index[1]}/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}.ncml'
 ncml_path_template: 'LS8_OLI_FC/LS8_OLI_FC_3577_{tile_index[0]}_{tile_index[1]}.ncml'
+metadata_format: 'GeoTIFF'
 
 sensor_regression_coefficients:
   blue:
@@ -99,21 +100,7 @@ global_attributes:
     - Scarth, P., Roder, A. and Schmidt, M., 2010. Tracking grazing pressure and climate interaction -  the role of Landsat fractional cover in the time series analysis, Proceedings of the 15th Australasian Remote Sensing & Photogrammetry Conference, viewed 4 January 2011, scribd.com/doc/37455672/15arspc-Submission-140.
     - Schmidt, M., Denham, R. and Scarth, P., 2010. 'Fractional ground cover monitoring of pastures and agricultural areas in Queensland', Proceedings of the 15th Australasian Remote Sensing & Photogrammetry Conference, viewed 4 January 2011, www.scribd.com/doc/37455826/15arspc-Submission-119.
 
-storage:
-  driver: geotiff
-
-  crs: EPSG:3577
-  tile_size:
-          x: 100000.0
-          y: 100000.0
-  resolution:
-          x: 25
-          y: -25
-  chunking:
-      x: 200
-      y: 200
-      time: 5
-  dimension_order: ['time', 'y', 'x']
+storage: missing
 
 measurements:
     - name: BS
