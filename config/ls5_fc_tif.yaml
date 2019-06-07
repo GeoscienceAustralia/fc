@@ -4,7 +4,7 @@ output_product: ls5_fc_tif
 description: Landsat 5 Fractional Cover
 product_type: fractional_cover
 
-location: '/g/data/u46/users/dsg547/sandpit/odc_testing/a_test'
+location: ''
 file_path_template: 'LS5_TM_FC/{tile_index[0]}_{tile_index[1]}/LS5_TM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.nc'
 partial_ncml_path_template: 'LS5_TM_FC/{tile_index[0]}_{tile_index[1]}/LS5_TM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}.ncml'
 ncml_path_template: 'LS5_TM_FC/LS5_TM_FC_3577_{tile_index[0]}_{tile_index[1]}.ncml'
