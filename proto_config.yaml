@@ -23,51 +23,8 @@ input:
       - -0.00327
       - 1.02551
   input:
-    collate:
-      - transform: apply_mask
-        mask_measurement_name: pixelquality
-        input:
-          juxtapose:
-          - product: ls7_nbar_albers
-          measurements: [red, green, blue]
-          - transform: make_mask
-          input:
-          product: ls7_pq_albers
-          flags:
-          blue_saturated: false
-          cloud_acca: no_cloud
-          cloud_fmask: no_cloud
-          cloud_shadow_acca: no_cloud_shadow
-          cloud_shadow_fmask: no_cloud_shadow
-          contiguous: true
-          green_saturated: false
-          nir_saturated: false
-          red_saturated: false
-          swir1_saturated: false
-          swir2_saturated: false
-          mask_measurement_name: pixelquality
-      - transform: apply_mask
-        mask_measurement_name: pixelquality
-        input:
-          juxtapose:
-          - product: ls8_nbar_albers
-          measurements: [red, green, blue]
-          - transform: make_mask
-          input:
-          product: ls8_pq_albers
-          flags:
-          blue_saturated: false
-          cloud_acca: no_cloud
-          cloud_fmask: no_cloud
-          cloud_shadow_acca: no_cloud_shadow
-          cloud_shadow_fmask: no_cloud_shadow
-          contiguous: true
-          green_saturated: false
-          nir_saturated: false
-          red_saturated: false
-          swir1_saturated: false
-          swir2_saturated: false
-          mask_measurement_name: pixelquality
+    - product: ls8_nbart_scene
+      measurements: [green, red, nir, swir1, swir2]
 
 
 output:
