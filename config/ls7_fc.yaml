@@ -1,5 +1,5 @@
 source_product: ls7_ard
-output_product: ls7_fc_tif
+output_product: ls7
 
 description: Landsat 7 Fractional Cover
 product_type: fractional_cover
