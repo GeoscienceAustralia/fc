@@ -146,6 +146,8 @@ jeremy.hooke@ga.gov.au
 **Damien Ayers**
 damien.ayers@ga.gov.au
 
+**Duncan Gray**
+duncan.gray@ga.gov.au
 
 Algorithm developer:
 
