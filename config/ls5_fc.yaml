@@ -1,5 +1,5 @@
 source_product: ls5_ard
-output_product: ls5_fc_tif
+output_product: ls5_fc
 
 description: Landsat 5 Fractional Cover
 product_type: fractional_cover
