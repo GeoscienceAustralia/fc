@@ -54,7 +54,9 @@ APP_NAME = 'datacube-fc'
 _LOG = logging.getLogger(__file__)
 CONFIG_DIR = Path(__file__).parent / 'config'
 
-band_mapping = ({'load_bands': ('green', 'red', 'nir', 'swir1', 'swir2'),
+_MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs')
+
+BAND_MAPPING = ({'load_bands': ('green', 'red', 'nir', 'swir1', 'swir2'),
                  'rename': None},
                 {'load_bands': ('nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2'),
                  'rename': {'nbart_green': 'green',
@@ -99,21 +101,13 @@ def _make_fc_config(index: Index, config: dict, dry_run):
     # band_mapping
     config['load_bands'] = None
     config['band_mapping'] = None
-    for guess in band_mapping:
+    for guess in BAND_MAPPING:
         if set(guess['load_bands']) <= set(measurements):
             # These bands will work
             config['load_bands'] = guess['load_bands']
             config['band_mapping'] = guess['rename']
             break
-
-    # fixme need to remove! crashing out to save time
-    # _LOG.info('Crashing out _make_fc_config!')
-    # raise SystemExit
-
     return config
-
-
-_MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs')
 
 
 def _build_variable_params(config: dict) -> dict:
@@ -178,8 +172,13 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     return output_product_definition
 
 
-def get_tile_index(regex, location):
-
+def _get_tile_index(regex, location):
+    """
+    Get tile index information from a location string.
+    :param regex:
+    :param location:
+    :return: a tile index tuple
+    """
     pattern = re.compile(regex)
     match = pattern.search(location)
     if match:
@@ -206,15 +205,14 @@ def _get_filename(config, sources):
 
     tile_index = None
     if '{tile_index[' in config['file_path_template']:
-        tile_index = get_tile_index(config['tile_index_regex'], sources.local_uri)
+        tile_index = _get_tile_index(config['tile_index_regex'], sources.local_uri)
 
     interp = dict(
         tile_index=tile_index,
         region_code=region_code,
         start_time=start_time,
         end_time=end_time,
-        version=config['task_timestamp'],
-        fucked=None)
+        version=config['task_timestamp'])
 
     file_path_template = str(Path(config['location'], config['file_path_template']))
     filename = file_path_template.format(**interp)
@@ -253,7 +251,6 @@ def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers',
 
     for row in cursor.fetchall():
         dataset = index.datasets.get(row[0], include_sources=True)
-        print('yield')
         yield dataset
 
 
