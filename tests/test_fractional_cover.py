@@ -147,3 +147,25 @@ def test_get_filename3():
     result = _get_filename(config, source)
     actual = '/can/this/be/made/up/_15_-43_'
     assert result == actual
+
+
+def test_get_filename4():
+
+    class Fake(object):
+        pass
+
+    source = Fake()
+    source.metadata = Fake()
+    source.metadata.region_code = '097045'
+    source.time = Fake()
+    source.time.values = (datetime.date(2019, 4, 13), datetime.date(2019, 5, 14))
+    template = 'LS8_OLI_FC/{region_code}_{start_time}_v{version}.nc'
+    template = '{epoch_start:%Y-%m-%d}_{epoch_end:%m}.nc'
+    config = {'root_dir_in_new_location': 'LS8_OLI_NBART',
+              'task_timestamp': 'the_timestamp',
+              'location': Path('/can/this/be/made/up'),
+              'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
+
+    result = _get_filename(config, source)
+    actual = '/can/this/be/made/up/2019-04-13_05.nc'
+    assert result == actual

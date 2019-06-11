@@ -198,10 +198,14 @@ def _get_filename(config, sources):
         # nc format
         start_time = to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f')
         end_time = to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f')
+        epoch_start = to_datetime(sources.time.values[0])
+        epoch_end = to_datetime(sources.time.values[-1])
     else:
         # data collection upgrade format
         start_time = to_datetime(sources.time.begin).strftime('%Y%m%d%H%M%S%f')
         end_time = to_datetime(sources.time.end).strftime('%Y%m%d%H%M%S%f')
+        epoch_start = to_datetime(sources.time.begin)
+        epoch_end = to_datetime(sources.time.begin)
 
     tile_index = None
     if '{tile_index[' in config['file_path_template']:
@@ -212,6 +216,8 @@ def _get_filename(config, sources):
         region_code=region_code,
         start_time=start_time,
         end_time=end_time,
+        epoch_start=epoch_start,
+        epoch_end=epoch_end,
         version=config['task_timestamp'])
 
     file_path_template = str(Path(config['location'], config['file_path_template']))
