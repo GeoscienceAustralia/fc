@@ -89,6 +89,7 @@ Options:
                                                      [a = aborted | b = begins | e = ends | n = do not send email]
 * ``-M, --email-id TEXT``                          Email Recipient List
 * ``-C, --config, --config_file TEXT``             Datacube config file
+* ``--local``                                      Experimental option. Execute fractional cover in the local environment. 
 * ``-v, --verbose``                                Use multiple times for more verbosity
 * ``--help``                                       Show help message.
 
