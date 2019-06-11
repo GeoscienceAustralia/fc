@@ -128,6 +128,38 @@ The config file lists the output `location` and file_path_template``, as shown i
 
 So here the output files are saved to ``/g/data/fk4/datacube/002/FC/LS5_TM_FC/<tile_index>/*.nc``
 
+File naming
+~~~~~~~~~~~
+
+Specify a template string used to name the output files. Uses the python ``format()`` string syntax, with the following placeholders available:
+
+
+==============  ==============
+  Placeholder    Description
+==============  ==============
+tile_index[0]    X Tile Index
+tile_index[1]    Y Tile Index
+region code      The region code of the input dataset
+epoch_start      Start date of the epoch, format using `strftime syntax`_
+epoch_end        End date of the epoch, format using `strftime syntax`_
+version          Task timestamp
+start_time       Start time in `%Y%m%d%H%M%S%f` format
+end_time         End time in `%Y%m%d%H%M%S%f` format
+==============  ==============
+
+For example:
+
+.. code-block:: yaml
+
+       file_path_template: '{y}_{x}/LS_PQ_COUNT_3577_{y}_{x}_{epoch_start:%Y-%m-%d}_{epoch_end:%Y-%m-%d}.nc'
+
+Will output filenames similar to:
+
+.. code-block:: bash
+
+    10_15/LS_PQ_COUNT_3577_10_15_2010-01-01_2011-01-01.nc
+
+
 License
 -------
 This repository is licensed under the Apache License 2.0. See the `LICENSE file <LICENSE>`_ in this repository for details.
