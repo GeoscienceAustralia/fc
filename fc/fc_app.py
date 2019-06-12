@@ -773,7 +773,9 @@ def run(index,
         dry_run: bool,
         tag: str,
         task_desc_file: str,
-        runner: TaskRunner):
+        qsub: QSubLauncher,
+        runner: TaskRunner,
+        *args, **kwargs):
     """
     Process generated task file. If dry run is enabled, only check for the existing files
     """
