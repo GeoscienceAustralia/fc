@@ -5,7 +5,7 @@ description: Landsat 7 Fractional Cover
 product_type: fractional_cover
 
 location: '/g/data/u46/users/dsg547/sandpit/odc_testing/a_test'
-file_path_template: 'LS7_ETM_FC/{tile_index[0]}_{tile_index[1]}/LS7_ETM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.nc'
+file_path_template: 'LS7_OLI_FC/{region_code}/LS7_OLI_FC_3577_{region_code}_{start_time}_v{version}.tif'
 partial_ncml_path_template: 'LS7_ETM_FC/{tile_index[0]}_{tile_index[1]}/LS7_ETM_FC_3577_{tile_index[0]}_{tile_index[1]}_{start_time}.ncml'
 ncml_path_template: 'LS7_ETM_FC/LS7_ETM_FC_3577_{tile_index[0]}_{tile_index[1]}.ncml'
 tile_index_regex: '^(.+)/LS[578_ETMOLI]*_NBART_[0-9]*_(?P<tile_index0>-?[0-9]*)_(?P<tile_index1>-?[0-9]*)_[_v0-9]*.*$'
