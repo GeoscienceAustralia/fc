@@ -3,7 +3,7 @@
 input:
   transform: fc.lib.FCTransform
 
-  sensor_regression_coefficients:
+  regression_coefficients:
     blue:
       - 0.00041
       - 0.97470

@@ -5,48 +5,14 @@ TODO:
 - [ ] Error Handling
 
 """
-from io import StringIO
-from typing import Dict
-
-import xarray
 import yaml
+from io import StringIO
+from types import SimpleNamespace
 
-from datacube.utils import unsqueeze_dataset
-from datacube.virtual import Transformation, Measurement, construct
-from fc.fractional_cover import fractional_cover
-
-
-class FractionalCover(Transformation):
-    def __init__(self, regression_coefficients, **settings):
-        self.regression_coefficients = regression_coefficients
-        self._measurements = {
-            'BS': Measurement(name='BS', dtype='int8', nodata=-1, units='percent'),
-            'PV': Measurement(name='PV', dtype='int8', nodata=-1, units='percent'),
-            'NPV': Measurement(name='NPV', dtype='int8', nodata=-1, units='percent'),
-            'UE': Measurement(name='UE', dtype='int8', nodata=-1, units='percent'),
-        }
-
-    def compute(self, data):
-        input_tile = data.squeeze('time').drop('time')
-        data = fractional_cover(input_tile, self.measurements, self.regression_coefficients)
-        output_tile = unsqueeze_dataset(data, 'time', data.time.values[0])
-        return output_tile
-
-    def measurements(self, input_measurements):
-        return self._measurements
-
-
-class Transformation:
-    def __init__(self, **settings):
-        """ Initialize the transformation object with the given settings. """
-
-    def compute(self,
-                data: xarray.Dataset) -> xarray.Dataset:
-        return data
-
-    def measurements(self,
-                     input_measurements: Dict[str, Measurement]) -> Dict[str, Measurement]:
-        return input_measurements
+import datacube
+from datacube.model.utils import make_dataset
+from datacube.virtual import construct, Transformation
+from fc.fc_app import _get_app_metadata, dataset_to_geotif_yaml, calc_uris
 
 
 class NRTJob:
@@ -92,7 +58,7 @@ class NRTJob:
     # -
 
 
-class NCIJob:
+class Job:
     # Other
     query_pattern = ''
     output_format = ''
@@ -116,6 +82,7 @@ config:
     output_path_pattern: s3://dea-public-data/foo/bar/{year}/{tile_id}/{date}-{id}.tif
     ?? transformation: ??
     ?? default metadata values: ??
+    output_product_name: ls8_fc_scene
 
 input:
     input_product: ...
@@ -124,31 +91,56 @@ input:
 
 OR
 
+    virtual_product_box: ...
     virtual_product_definition: ...
 
 '''))
 
 
-def worker(job, transformation):
+def worker(job):
     # load configuration and setup
     with open('proto_config.yaml') as conf_file:
         config = yaml.safe_load(conf_file)
     vproduct = construct(config['input'])
 
-    # Load and compute data
-    vdbag = vproduct.search(id=job.dataset_id)
+    dc = datacube.Datacube()
+    output_product = dc.index.products.get_by_name(config['output_product_name'])
+    vdbag = vproduct.query(dc=dc, id=job.dataset_id)
 
     box = vproduct.group(vdbag)
 
-    data = vproduct.fetch(box)
+    # Serialise the box into the task
+    task_job = SimpleNamespace(
+        box=box,
+
+    )
+
+    # Load and perform processing
+    output_data = vproduct.fetch(box)
+
+    # compute filename
+    variable_params = {band: None
+                       for band in vproduct.output_measurements(vdbag.product_definitions)}
+    uri, band_uris = calc_uris(config['output_path_pattern'], variable_params)
 
     # generate dataset metadata
     input_dataset = next(iter(vdbag.pile))
-
+    dataset = make_dataset(product=output_product,
+                           sources=[input_dataset],
+                           extent=box.geobox.extent,
+                           center_time=input_dataset.center_time,
+                           uri=uri,
+                           band_uris=band_uris,
+                           app_info=_get_app_metadata(config),
+                           )
     # write data to disk
-        # compute filename
-        # ensure filepath
-        # write
+    dataset_to_geotif_yaml(
+        dataset=output_data,
+        filename=uri,
+        variable_params=variable_params,
+    )
+    # ensure filepath
+    # write
 
     # record dataset record to database
     # OR NOT
