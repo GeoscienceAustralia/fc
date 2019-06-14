@@ -37,7 +37,7 @@ class FractionalCover(Transformation):
         self.output_measurements = [Measurement(**m) for m in FC_MEASUREMENTS]
 
     def measurements(self, input_measurements):
-        return self.output_measurements + input_measurements
+        return self.output_measurements
 
     def compute(self, data):
         from fc.fractional_cover import fractional_cover
@@ -48,7 +48,7 @@ class FractionalCover(Transformation):
         fc = []
         for s in sel:
             fc.append(fractional_cover(data.sel(**s), self.output_measurements))
-        return data.merge(xr.concat(fc, dim='time'))
+        return xr.concat(fc, dim='time')
 
 
 DEFAULT_RESOLVER.lookup_table['transform']['fractional_cover'] = FractionalCover

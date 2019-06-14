@@ -5,14 +5,16 @@ TODO:
 - [ ] Error Handling
 
 """
+import click
 import yaml
 from io import StringIO
-from types import SimpleNamespace
 
 import datacube
-from datacube.model.utils import make_dataset
+from datacube.model.utils import make_dataset, datasets_to_doc
 from datacube.virtual import construct, Transformation
-from fc.fc_app import _get_app_metadata, dataset_to_geotif_yaml, calc_uris
+from datacube.virtual.impl import VirtualDatasetBag
+from fc.fc_app import dataset_to_geotif_yaml, calc_uris
+from .dask import dask_compute_stream
 
 
 class NRTJob:
@@ -96,43 +98,102 @@ OR
 
 '''))
 
+task = {
+    'virtual_product_box': None,
+    'virtual_product_def': None,
 
-def worker(job):
-    # load configuration and setup
-    with open('proto_config.yaml') as conf_file:
+    'file_output': dict(
+        location='/g/data/u46/users/dsg547/sandpit/odc_testing/a_test/LS8_OLI_FC/',
+        file_path_template='{x}_{y}/LS8_OLI_FC_3577_{x}_{y}_{start_time}_v{version}'
+    ),
+
+    'output_product': None,
+}
+
+
+# 'outputs': {
+#     'BS': '/a/sdljn/asdlkn/LS8_FC_20182928_BS.tif',
+#     'PV': '/a/sdljn/asdlkn/LS8_FC_20182928_PV.tif',
+#     'NPV': '/a/sdljn/asdlkn/LS8_FC_20182928_NPV.tif',
+#     'UE': '/a/sdljn/asdlkn/LS8_FC_20182928_UE.tif',
+#     'metadata': '/a/sdljn/asdlkn/LS8_FC_20182928.yaml',
+# }
+
+
+@click.command
+@click.option('config_file')
+def main(config_file):
+    with open(config_file) as conf_file:
         config = yaml.safe_load(conf_file)
     vproduct = construct(config['input'])
 
     dc = datacube.Datacube()
-    output_product = dc.index.products.get_by_name(config['output_product_name'])
-    vdbag = vproduct.query(dc=dc, id=job.dataset_id)
+    output_product_name = config['task_generation']['output_product']
+    output_product = dc.index.products.get_by_name(output_product_name)
 
-    box = vproduct.group(vdbag)
+    datasets = datasets_that_need_to_be_processed(dc.index, config['task_generation']['input_product'],
+                                                  output_product_name)
 
-    # Serialise the box into the task
-    task_job = SimpleNamespace(
-        box=box,
+    bags = map(bag_maker(output_product_name, output_product), datasets)
 
-    )
+    boxes = map(box_maker(vproduct), bags)
+
+    tasks = map(task_maker(config, output_product), boxes)
+
+    completed = dask_compute_stream(client, execute_task, tasks)
+
+
+def bag_maker(product_name, product):
+    def dataset_to_bag(dataset):
+        return VirtualDatasetBag([dataset], None, {product_name: product})
+
+    return dataset_to_bag
+
+
+def box_maker(vproduct):
+    def bag_to_box(bag):
+        return vproduct.group(bag)
+
+    return bag_to_box
+
+
+def task_maker(config, output_product):
+    def make_task(box):
+        return dict(
+            box=box,
+            vproduct_def=config['input'],
+            file_output=config['file_output'],
+            output_product=output_product,
+
+        )
+
+    return make_task
+
+
+def execute_task(task):
+    vproduct = construct(task['virtual_product_def'])
+    box = task['box']
 
     # Load and perform processing
     output_data = vproduct.fetch(box)
 
-    # compute filename
+    # compute base filename
     variable_params = {band: None
-                       for band in vproduct.output_measurements(vdbag.product_definitions)}
-    uri, band_uris = calc_uris(config['output_path_pattern'], variable_params)
+                       for band in vproduct.output_measurements(box.product_definitions)}
+    uri, band_uris = calc_uris(task['file_output']['file_path_template'], variable_params)
 
     # generate dataset metadata
-    input_dataset = next(iter(vdbag.pile))
-    dataset = make_dataset(product=output_product,
+    input_dataset = next(iter(box.pile))
+    dataset = make_dataset(product=task['output_product'],
                            sources=[input_dataset],
                            extent=box.geobox.extent,
                            center_time=input_dataset.center_time,
                            uri=uri,
                            band_uris=band_uris,
-                           app_info=_get_app_metadata(config),
+                           app_info=task['virtual_product_def'],
                            )
+
+    output_data['dataset'] = datasets_to_doc([dataset])
     # write data to disk
     dataset_to_geotif_yaml(
         dataset=output_data,
@@ -146,16 +207,5 @@ def worker(job):
     # OR NOT
 
 
-def run(query, transformation):
-    transformer = transformation()
-
-    for dataset in execute_query(query):
-        pass
-
-
-def load_data(job):
-    return {}
-
-
-def execute_query():
-    pass
+if __name__ == '__main__':
+    main()
