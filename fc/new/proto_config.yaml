@@ -30,8 +30,16 @@ virtual_product_specification:
       - -0.00327
       - 1.02551
   input:
-    - product: ls8_nbart_scene
-      measurements: [green, red, nir, swir1, swir2]
+      transform: rename
+      measurement_names:
+        green: nbart_green
+        red: nbart_red
+        nir: nbart_nir
+        swir1: nbart_swir_1
+        swir2: nbart_swir_2
+      input:
+        product: ls8_nbart_scene
+        measurements: [green, red, nir, swir1, swir2]
 
 
 file_output:
