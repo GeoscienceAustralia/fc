@@ -38,7 +38,7 @@ virtual_product_specification:
         swir1: nbart_swir_1
         swir2: nbart_swir_2
       input:
-        product: ls8_nbart_scene
+        product: ls8_ard
         measurements: [green, red, nir, swir1, swir2]
 
 
