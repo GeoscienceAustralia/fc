@@ -36,7 +36,8 @@ class FractionalCover(Transformation):
     Requires bands named 'green', 'red', 'nir', 'swir1', 'swir2'
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, regression_coefficients=None):
+        self.regression_coefficients = regression_coefficients
         self.output_measurements = {m['name']: Measurement(**m) for m in FC_MEASUREMENTS}
 
     def measurements(self, input_measurements):
@@ -53,8 +54,18 @@ class FractionalCover(Transformation):
                                   if v not in data.geobox.dims])]
         fc = []
         for s in sel:
-            fc.append(fractional_cover(data.sel(**s), self.output_measurements))
+            fc.append(fractional_cover(data.sel(**s), self.output_measurements, self.regression_coefficients))
         return xr.concat(fc, dim='time')
+
+    def algorithm_metadata(self):
+        from fc import __version__
+        return {
+            'algorithm': {
+                'name': 'Fractional Cover',
+                'version': __version__,
+                'repo_url': 'https://github.com/GeoscienceAustralia/fc.git',
+                'parameters': {'regression_coefficients': self.regression_coefficients}
+            }}
 
 
 class FakeFractionalCover(Transformation):
