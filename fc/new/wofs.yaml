@@ -3,8 +3,6 @@
 wofs_spec:
   transform: wofs.virtualproduct.WOFL
   input:
-    collate:
+    juxtapose:
       - product: dsm_1s
-      - juxtapose:
-        - product: ls8_nbart_scene
-        - product: ls8_pq_scene
+      - product: ls8_ard
