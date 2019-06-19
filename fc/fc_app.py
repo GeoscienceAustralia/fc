@@ -25,11 +25,12 @@ import xarray
 from boltons import fileutils
 from math import ceil
 from pandas import to_datetime
+import yaml
 
 from datacube import Datacube
 from datacube.api.query import Query
 from datacube.index._api import Index
-from datacube.model import DatasetType
+from datacube.model import DatasetType, Dataset
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.testutils import io
 from datacube.utils import uri_to_local_path
@@ -218,7 +219,7 @@ def _get_filename(config, sources):
         end_time=end_time,
         epoch_start=epoch_start,
         epoch_end=epoch_end,
-        version=config['task_timestamp'])
+        version=config.get('task_timestamp'))
 
     file_path_template = str(Path(config['location'], config['file_path_template']))
     filename = file_path_template.format(**interp)
@@ -370,6 +371,7 @@ def _do_fc_task(config, task):
     if ext == '.tif':
         dataset_to_geotif_yaml(
             dataset=fc_dataset,
+            odc_dataset=datasets.item(),
             filename=file_path,
             variable_params=variable_params,
         )
@@ -848,6 +850,7 @@ def tif_filenames(filename: Union[Path, str], bands: list, sep='_'):
 
 
 def dataset_to_geotif_yaml(dataset: xarray.Dataset,
+                           odc_dataset: Dataset,
                            filename: Union[Path, str],
                            variable_params=None):
     """
@@ -869,8 +872,8 @@ def dataset_to_geotif_yaml(dataset: xarray.Dataset,
     Path(filename).parent.mkdir(parents=True, exist_ok=True)
 
     # Write out the yaml file
-    with fileutils.atomic_save(str(yml)) as yaml_dst:
-        yaml_dst.write(dataset.data_vars['dataset'].values[0])
+    with fileutils.atomic_save(str(yml)) as stream:
+        yaml.safe_dump(odc_dataset.metadata_doc, stream, encoding='utf8')
 
     # Iterate over the bands
     for key, bandfile in abs_paths.items():

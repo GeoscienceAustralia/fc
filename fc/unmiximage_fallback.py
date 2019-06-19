@@ -1,4 +1,4 @@
-import scipy
+import scipy.optimize
 import numpy
 
 
