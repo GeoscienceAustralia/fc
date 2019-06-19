@@ -7,6 +7,8 @@ TODO:
 """
 
 from collections import namedtuple
+from pathlib import Path
+import sys
 
 import click
 import yaml
@@ -15,22 +17,22 @@ import datacube
 from datacube.model.utils import make_dataset, datasets_to_doc
 from datacube.virtual import construct
 from datacube.virtual.impl import VirtualDatasetBag
-from fc.fc_app import dataset_to_geotif_yaml, calc_uris
+from fc.fc_app import dataset_to_geotif_yaml, calc_uris, _get_filename
 from fc.new._dask import dask_compute_stream
 
 Task = namedtuple('Task', ['box', 'virtual_product_def', 'file_output', 'output_product'])
 
-task = {
-    'box': None,
-    'virtual_product_def': None,
-
-    'file_output': dict(
-        location='/g/data/u46/users/dsg547/sandpit/odc_testing/a_test/LS8_OLI_FC/',
-        file_path_template='{x}_{y}/LS8_OLI_FC_3577_{x}_{y}_{start_time}_v{version}'
-    ),
-
-    'output_product': None,
-}
+# task = {
+#     'box': None,
+#     'virtual_product_def': None,
+#
+#     'file_output': dict(
+#         location='/g/data/u46/users/dsg547/sandpit/odc_testing/a_test/LS8_OLI_FC/',
+#         file_path_template='{x}_{y}/LS8_OLI_FC_3577_{x}_{y}_{start_time}_v{version}'
+#     ),
+#
+#     'output_product': None,
+# }
 
 
 @click.command()
@@ -45,13 +47,14 @@ def main(config_file):
     dc = datacube.Datacube()
     input_product_name = config['task_generation']['input_product']
     input_product = dc.index.products.get_by_name(input_product_name)
+    output_product = dc.index.products.get_by_name(config['task_generation']['output_product'])
 
-    # Find what needs to be processed
+    # Find which datasets needs to be processed
     datasets = dc.index.datasets.search(limit=3, product=config['task_generation']['input_product'])
     # datasets = datasets_that_need_to_be_processed(dc.index, config['task_generation']['input_product'],
     #                                               output_product_name)
 
-    # Divide into tasks
+    # Divide into a sequence of tasks
     bags = (
         VirtualDatasetBag([dataset], None, {input_product_name: input_product})
         for dataset in datasets
@@ -59,7 +62,7 @@ def main(config_file):
 
     boxes = map(box_maker(vproduct), bags)
 
-    tasks = map(task_maker(config, input_product), boxes)
+    tasks = map(task_maker(config, output_product), boxes)
 
     tasks = list(tasks)
     print(len(tasks))
@@ -70,11 +73,12 @@ def main(config_file):
     client = Client()
     completed = dask_compute_stream(client, execute_task, tasks)
 
-    try:
-        for result in completed:
+    for result in completed:
+        try:
             print(result)
-    except Exception as e:
-        print(e)
+        except Exception as e:
+            print(e)
+            print(sys.exc_info()[0])
 
 
 def bag_maker(product_name, product):
@@ -112,25 +116,26 @@ def execute_task(task: Task):
 
     # compute base filename
     variable_params = {band: None
-                       for band in vproduct.output_measurements(box.product_definitions)}
-    uri, band_uris = calc_uris(task.file_output['file_path_template'], variable_params)
+                       for band in vproduct.output_measurements(task.box.product_definitions)}
+    uri, band_uris = calc_uris(Path(task.file_output['file_path_template']), variable_params)
 
     # generate dataset metadata
     input_dataset = next(iter(task.box.pile))
-    dataset = make_dataset(product=task.output_product,
-                           sources=[input_dataset],
+    odc_dataset = make_dataset(product=task.output_product,
+                           sources=input_dataset.item(),
                            extent=task.box.geobox.extent,
-                           center_time=input_dataset.center_time,
+                           center_time=input_dataset.time.item(),
                            uri=uri,
                            band_uris=band_uris,
                            app_info=task.virtual_product_def,
                            )
 
-    output_data['dataset'] = datasets_to_doc([dataset])
     # write data to disk
+    output_filename = _get_filename(task.file_output, sources=input_dataset.item()[0])
     dataset_to_geotif_yaml(
         dataset=output_data,
-        filename=uri,
+        odc_dataset=odc_dataset,
+        filename=output_filename,
         variable_params=variable_params,
     )
     # ensure filepath
