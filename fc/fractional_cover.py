@@ -1,11 +1,17 @@
 from __future__ import absolute_import
 
-import numpy
-import numexpr
-import xarray
 from functools import partial
+from typing import Sequence, Mapping
+
+import numexpr
+import numpy
+import xarray
+
+from datacube.model import Measurement
+
 try:
     import dask.array
+
     dask_array_type = (dask.array.Array,)
 except ImportError:  # pragma: no cover
     dask_array_type = ()
@@ -21,7 +27,6 @@ try:
 except ImportError:
     from . import unmiximage_fallback as unmiximage
 
-
 DEFAULT_MEASUREMENTS = [{
     'name': 'PV',
     'dtype': 'int8',
@@ -30,12 +35,14 @@ DEFAULT_MEASUREMENTS = [{
 }]
 
 
-def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None):
+def fractional_cover(nbar_tile: xarray.Dataset,
+                     measurements: Sequence[Measurement] = None,
+                     regression_coefficients: Mapping[str, Sequence[int]] = None) -> xarray.Dataset:
     """
     Given a tile of spectral observations compute the fractional components.
     The data should be a 2D array
 
-    :param xarray.Dataset nbar_tile:
+    :param nbar_tile:
         A dataset with the following data variables (0-10000):
             * green
             * red
@@ -43,15 +50,15 @@ def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None)
             * swir1
             * swir2
 
-    :param list(dict) measurements:
-        A list of measurement item dicts, each containing:
+    :param measurements:
+        A list of Measurements, each containing:
             * name - name of output data_var
             * src_var - (optional) if `name` is not one of `['PV', 'NPV', 'BS', 'UE']`, use one of them here
             * dtype - dtype to use, eg `'int8'`
             * nodata - value to fill in for no data, eg `-1`
             * units' - eg `'percent'`
 
-    :param dict regression_coefficients:
+    :param regression_coefficients:
         A dictionary with six pairs of coefficients to apply to the green, red, nir, swir1 and swir2 values
         (blue is not used)
 
@@ -83,7 +90,7 @@ def fractional_cover(nbar_tile, measurements=None, regression_coefficients=None)
     where = numpy.where if not isinstance(output_data, dask_array_type) else dask.array.where
 
     def data_func(measurement):
-        band_names = ['PV', 'NPV', 'BS', 'UE']
+        band_names = ['pv', 'npv', 'bs', 'ue']
         src_var = measurement.get('src_var', None) or measurement.get('name')
         i = band_names.index(src_var)
         unmasked_var = output_data[i]
