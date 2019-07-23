@@ -25,6 +25,7 @@ from . import endmembers
 try:
     from .unmix import unmiximage
 except ImportError:
+    print('WARNING: Fortran unmixing cannot be loaded, falling back to scipy')
     from . import unmiximage_fallback as unmiximage
 
 DEFAULT_MEASUREMENTS = [{
