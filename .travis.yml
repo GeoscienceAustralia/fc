@@ -43,7 +43,7 @@ install:
     - pip install GDAL=="$(gdal-config --version)"
     # Dask.array seems to need this?
     - travis_retry pip install cloudpickle
-    - travis_retry pip install git+git://github.com/GeoscienceAustralia/eo-datasets.git
+    - travis_retry pip install git+git://github.com/GeoscienceAustralia/eo-datasets.git@eodatasets1
     - travis_retry pip install git+git://github.com/GeoscienceAustralia/digitalearthau.git
     - travis_retry pip install git+git://github.com/opendatacube/datacube-core.git
     - travis_retry pip install -e .
