@@ -61,7 +61,11 @@ class FractionalCover(Transformation):
             fc.append(fractional_cover(data.sel(**s), measurements, self.regression_coefficients))
         fc = xr.concat(fc, dim='time')
         fc.attrs['crs'] = data.attrs['crs']
-        return fc.rename(inplace=True, BS='bs', PV='pv', NPV='npv', UE='ue')
+        try:
+            fc.rename(inplace=True, BS='bs', PV='pv', NPV='npv', UE='ue')
+        except ValueError:   # Assuming the names are already correct and don't need to be changed.
+            pass
+        return fc
 
     def algorithm_metadata(self):
         return {

@@ -93,7 +93,7 @@ def fractional_cover(nbar_tile: xarray.Dataset,
     def data_func(measurement):
         band_names = ['PV', 'NPV', 'BS', 'UE']
         src_var = measurement.get('src_var', None) or measurement.get('name')
-        i = band_names.index(src_var)
+        i = band_names.index(src_var.upper())
         unmasked_var = output_data[i]
 
         # Set nodata value into output array
