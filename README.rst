@@ -11,6 +11,16 @@ These can be used after logging into the NCI and running:
 
     module load dea
 
+Installation
+~~~~~~~~~~~~
+
+The easiest way to install Fractional Cover is::
+
+    pip install --extra-index-url=https://packages.dea.gadevs.ga/ fc
+
+This package includes the compiled Fortran extensions to run about 15 times faster than the Python+scipy version
+you get by default without a Fortran compiler.
+
 Setup on VDI
 ~~~~~~~~~~~~
 
