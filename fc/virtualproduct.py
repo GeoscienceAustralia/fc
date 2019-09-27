@@ -1,5 +1,5 @@
 from itertools import product
-
+import numpy
 import xarray as xr
 
 from datacube.virtual import Transformation, Measurement
@@ -51,6 +51,11 @@ class FractionalCover(Transformation):
 
     def compute(self, data):
         # Typically creates a list of dictionaries looking like [{time: 1234}, {time: 1235}, ...]
+        if True:
+            for band in ['green', 'red', 'nir', 'swirl1', 'swirl2']:
+                print (data[band])
+                data[band] = numpy.clip((data[band] * 2.75e-5 -0.2)*10000, 0, 10000)
+                print (data[band])
         sel = [dict(p)
                for p in product(*[[(i.name, i.item()) for i in c]
                                   for v, c in data.coords.items()
