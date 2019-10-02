@@ -51,11 +51,10 @@ class FractionalCover(Transformation):
 
     def compute(self, data):
         # Typically creates a list of dictionaries looking like [{time: 1234}, {time: 1235}, ...]
-        if True:
+        if os.getenv("C2SCALING") == 'True':
+            # The C2 data need to be scaled
             for band in ['green', 'red', 'nir', 'swirl1', 'swirl2']:
-                print (data[band])
-                data[band] = numpy.clip((data[band] * 2.75e-5 -0.2)*10000, 0, 10000)
-                print (data[band])
+                data[band] = numpy.clip((data[band] * 2.75 -2000, 0, 10000)
         sel = [dict(p)
                for p in product(*[[(i.name, i.item()) for i in c]
                                   for v, c in data.coords.items()
