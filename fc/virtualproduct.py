@@ -3,6 +3,7 @@ import numpy
 import xarray as xr
 
 from datacube.virtual import Transformation, Measurement
+from datacube.storage.masking import valid_data_mask
 from fc import __version__
 from fc.fractional_cover import fractional_cover
 
@@ -39,7 +40,7 @@ class FractionalCover(Transformation):
     Requires bands named 'green', 'red', 'nir', 'swir1', 'swir2'
     """
 
-    def __init__(self, regression_coefficients=None):
+    def __init__(self, regression_coefficients=None, c2_scaling=False):
         if regression_coefficients is None:
             regression_coefficients = {band: [0, 1]
                                        for band in ['green', 'red', 'nir', 'swir1', 'swir2']
@@ -51,10 +52,18 @@ class FractionalCover(Transformation):
 
     def compute(self, data):
         # Typically creates a list of dictionaries looking like [{time: 1234}, {time: 1235}, ...]
-        if os.getenv("C2SCALING") == 'True':
+        if self.c2_scaling:
             # The C2 data need to be scaled
-            for band in ['green', 'red', 'nir', 'swirl1', 'swirl2']:
-                data[band] = numpy.clip((data[band] * 2.75 -2000, 0, 10000)
+            for band in ['green', 'red', 'nir', 'swir1', 'swir2']:
+                dtype = data[band].dtype
+                nodata = data[band].attrs['nodata']
+
+                is_valid_array = valid_data_mask(data[band])
+
+                data[band] = data[band].where(is_valid_array)
+                data[band] = numpy.clip(data[band] * 2.75 - 2000, 0, 10000)
+                data[band] = data[band].astype(dtype).where(is_valid_array, nodata)
+
         sel = [dict(p)
                for p in product(*[[(i.name, i.item()) for i in c]
                                   for v, c in data.coords.items()
