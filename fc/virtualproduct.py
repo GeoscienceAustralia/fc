@@ -67,7 +67,7 @@ class FractionalCover(Transformation):
         fc = xr.concat(fc, dim='time')
         fc.attrs['crs'] = data.attrs['crs']
         try:
-            fc.rename(inplace=True, BS='bs', PV='pv', NPV='npv', UE='ue')
+            fc = fc.rename(BS='bs', PV='pv', NPV='npv', UE='ue')
         except ValueError:  # Assuming the names are already correct and don't need to be changed.
             pass
         return fc
