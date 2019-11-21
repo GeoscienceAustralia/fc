@@ -54,7 +54,7 @@ class FractionalCover(Transformation):
         # Typically creates a list of dictionaries looking like [{time: 1234}, {time: 1235}, ...]
         if self.c2_scaling:
             # The C2 data need to be scaled
-            scale_usgs_collection2(data)
+            data = scale_usgs_collection2(data)
 
         sel = [dict(p)
                for p in product(*[[(i.name, i.item()) for i in c]
@@ -103,16 +103,21 @@ class FakeFractionalCover(FractionalCover):
 
 
 def scale_usgs_collection2(data):
-    return data.map(scale_and_clip_dataarray, keep_attrs=True,
-                    scale_factor=2.75, add_offset=-2000, clip_range=(0, 10000))
+    return data.apply(scale_and_clip_dataarray, keep_attrs=True,
+                      scale_factor=2.75, add_offset=-2000, clip_range=(0, 10000))
 
 
 def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_offset=0, clip_range=None):
+    dtype = dataarray.dtype
     nodata = dataarray.attrs['nodata']
+
     mask = dataarray.data == nodata
+
     dataarray.data = dataarray.data * scale_factor + add_offset
+
     dataarray.data[mask] = nodata
     if clip_range is not None:
         clip_min, clip_max = clip_range
         dataarray.clip(clip_min, clip_max)
-    return dataarray
+        
+    return dataarray.astype(dtype)
