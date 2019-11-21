@@ -1,10 +1,7 @@
+import xarray as xr
 from itertools import product
 
-import numpy
-import xarray as xr
-from datacube.storage.masking import valid_data_mask
 from datacube.virtual import Transformation, Measurement
-
 from fc import __version__
 from fc.fractional_cover import fractional_cover
 
@@ -37,7 +34,8 @@ FC_MEASUREMENTS = [
 
 
 class FractionalCover(Transformation):
-    """ Applies the fractional cover algorithm to surface reflectance data.
+    """
+    Applies the fractional cover algorithm to surface reflectance data.
     Requires bands named 'green', 'red', 'nir', 'swir1', 'swir2'
     """
 
@@ -80,12 +78,17 @@ class FractionalCover(Transformation):
                 'name': 'Fractional Cover',
                 'version': __version__,
                 'repo_url': 'https://github.com/GeoscienceAustralia/fc.git',
-                'parameters': {'regression_coefficients': self.regression_coefficients}
+                'parameters': {
+                    'regression_coefficients': self.regression_coefficients,
+                    'usgs_c2_scaling': self.c2_scaling
+                }
             }}
 
 
 class FakeFractionalCover(FractionalCover):
-    """ Applies the fractional cover algorithm to surface reflectance data.
+    """
+    Fake (fast) fractional cover for testing purposes only
+
     Requires bands named 'green', 'red', 'nir', 'swir1', 'swir2'
     """
 
@@ -100,12 +103,16 @@ class FakeFractionalCover(FractionalCover):
 
 
 def scale_usgs_collection2(data):
-    for band in ['green', 'red', 'nir', 'swir1', 'swir2']:
-        dtype = data[band].dtype
-        nodata = data[band].attrs['nodata']
+    return data.map(scale_and_clip_dataarray, keep_attrs=True,
+                    scale_factor=2.75, add_offset=-2000, clip_range=(0, 10000))
 
-        is_valid_array = valid_data_mask(data[band])
 
-        data[band] = data[band].where(is_valid_array)
-        data[band] = numpy.clip((data[band] * 2.75e-5 - 0.2) * 10000, 0, 10000)
-        data[band] = data[band].astype(dtype).where(is_valid_array, nodata)
+def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_offset=0, clip_range=None):
+    nodata = dataarray.attrs['nodata']
+    mask = dataarray.data == nodata
+    dataarray.data = dataarray.data * scale_factor + add_offset
+    dataarray.data[mask] = nodata
+    if clip_range is not None:
+        clip_min, clip_max = clip_range
+        dataarray.clip(clip_min, clip_max)
+    return dataarray
