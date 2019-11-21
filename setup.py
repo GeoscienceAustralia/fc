@@ -32,7 +32,6 @@ class PyTest(Command):
 foo = {'sdist': sdist}
 my_cmdclass = versioneer.get_cmdclass(foo)
 my_cmdclass['test'] = PyTest
-#my_cmdclass['sdist'] = sdist # Make sure the sdist includes everything
 
 unmix_ext = Extension(
     name='fc.unmix.unmiximage',
@@ -42,6 +41,7 @@ unmix_ext = Extension(
         'fc/unmix/nnls.f90',
         'fc/unmix/unmiximage.pyf',
     ],
+    extra_f90_compile_args=['-static']
 )
 unmix_ext.optional = True  # For platforms without FORTRAN, we will fall back to a SciPy implementation
 
