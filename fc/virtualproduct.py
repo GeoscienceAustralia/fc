@@ -95,7 +95,7 @@ class FakeFractionalCover(FractionalCover):
     def compute(self, data):
         if self.c2_scaling:
             # The C2 data need to be scaled
-            scale_usgs_collection2(data)
+            data = scale_usgs_collection2(data)
         return xr.Dataset({'blue': data.blue,
                            'red': data.red,
                            'green': data.green},
@@ -107,17 +107,23 @@ def scale_usgs_collection2(data):
                       scale_factor=2.75, add_offset=-2000, clip_range=(0, 10000))
 
 
-def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_offset=0, clip_range=None):
-    dtype = dataarray.dtype
+def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_offset=0, clip_range=None,
+                             new_nodata=-999, new_dtype='int16'):
+    orig_attrs = dataarray.attrs
     nodata = dataarray.attrs['nodata']
 
     mask = dataarray.data == nodata
 
-    dataarray.data = dataarray.data * scale_factor + add_offset
+    dataarray = dataarray * scale_factor + add_offset
 
-    dataarray.data[mask] = nodata
     if clip_range is not None:
         clip_min, clip_max = clip_range
         dataarray.clip(clip_min, clip_max)
-        
-    return dataarray.astype(dtype)
+
+    dataarray = dataarray.astype(new_dtype)
+
+    dataarray.data[mask] = new_nodata
+    dataarray.attrs = orig_attrs
+    dataarray.attrs['nodata'] = new_nodata
+
+    return dataarray
