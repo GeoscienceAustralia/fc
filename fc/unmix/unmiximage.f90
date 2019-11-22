@@ -108,7 +108,7 @@ SUBROUTINE unmixPixel(pixelRefl, endMemberMatrix, numBands, numEndMembers, inNul
    DOUBLE PRECISION, INTENT(OUT) :: pixelFractions(numEndMembers+1)
 
    ! Local variables
-   INTEGER                       :: col, row, indx(numEndMembers), mode
+   INTEGER                       :: indx(numEndMembers), mode
    DOUBLE PRECISION              :: endMemberMatrixCopy(numBands,numEndMembers)
    DOUBLE PRECISION              :: pixelReflCopy(numBands), pixelFracs(numEndmembers), rnorm, w(numEndMembers)
 
