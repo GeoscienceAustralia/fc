@@ -16,7 +16,6 @@ addons:
           - libudunits2-0
           - gfortran
           - libatlas-base-dev
-          - libatlas-dev
           - liblapack-dev
           - libproj-dev
           - libxml2-dev
