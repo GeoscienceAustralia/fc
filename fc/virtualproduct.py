@@ -96,9 +96,9 @@ class FakeFractionalCover(FractionalCover):
         if self.c2_scaling:
             # The C2 data need to be scaled
             data = scale_usgs_collection2(data)
-        return xr.Dataset({'blue': data.blue,
-                           'red': data.red,
-                           'green': data.green},
+        return xr.Dataset({'pv': data.red,
+                           'bs': data.red,
+                           'npv': data.green},
                           attrs=data.attrs)
 
 
