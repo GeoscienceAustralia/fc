@@ -110,11 +110,11 @@ Tracking progress
 
     $ qstat -u $USER
 
-    $ qcat 7517348.r-man2 | head
+    $ qcat 7517348.gadi-pbs | head
 
-    $ qcat 7517348.r-man2 | tail
+    $ qcat 7517348.gadi-pbs | tail
 
-    $ qps 7517348.r-man2
+    $ qps 7517348.gadi-pbs
 
 File locations
 --------------

@@ -387,6 +387,8 @@ def _do_fc_task(config, task):
 
 
 def _process_result(index: Index, result):
+    _LOG.info(f'Start Indexing {len(result.values)} datasets')
+
     for dataset in result.values:
         index.datasets.add(dataset, sources_policy='skip')
         _LOG.info('Dataset %s added at %s', dataset.id, dataset.uris)
@@ -460,9 +462,9 @@ def ensure_products(index, app_config, dry_run):
 def _estimate_job_size(num_tasks):
     """ Translate num_tasks to number of nodes and walltime
     """
-    max_nodes = 20
-    cores_per_node = 16
-    task_time_mins = 15    # it was 5
+    max_nodes = 8
+    cores_per_node = 48  # Gadi: 48 CPUs/node, 192 GB RAM/node, 400 GB PBS_JOBFS/node.
+    task_time_mins = 20
 
     # TODO: Tune this code:
     # "We have found for best throughput 25 nodes can produce about 11.5 tiles per minute per node,
@@ -805,6 +807,11 @@ def run_command(index,
     try:
         runner(task_desc, tasks, task_func, process_func)
         _LOG.info("Runner finished normally, triggering shutdown.")
+    except Exception as err:
+        if "Error 104" in err:
+            _LOG.info("Processing completed and shutdown was initiated. Exception: %s", str(err))
+        else:
+            _LOG.info("Exception during processing: %s", str(err))
     finally:
         runner.stop()
     return 0

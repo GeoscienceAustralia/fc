@@ -103,7 +103,7 @@ def test_all_files_exist():
 def test_estimate_job_size():
     nodes, wall_time_mins = _estimate_job_size(60)
     assert nodes == 1
-    assert wall_time_mins == '60m'
+    assert wall_time_mins == '40m'
 
 
 def test_get_filename():
