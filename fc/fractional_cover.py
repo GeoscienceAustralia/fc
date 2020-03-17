@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover
     dask_array_type = ()
 
 from datacube import Datacube
-from datacube.storage.masking import valid_data_mask
+from datacube.utils.masking import valid_data_mask
 from datacube.utils import iter_slices
 
 from . import endmembers
