@@ -486,7 +486,7 @@ def _estimate_job_size(num_tasks):
               type=click.Choice(['normal', 'express']))
 @click.option('--year', 'time_range',
               callback=task_app.validate_year,
-              help='Limit the process to a particular year')
+              help='Limit the process to a particular year, or "-" separated range of years.')
 @click.option('--no-qsub', is_flag=True, default=False,
               help="Skip submitting job")
 @tag_option
@@ -769,7 +769,6 @@ def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bo
               required=True,
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 @with_qsub_runner()
-@task_app.load_tasks_option
 @tag_option
 @ui.config_option
 @ui.verbose_option
