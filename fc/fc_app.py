@@ -482,9 +482,8 @@ def generate(index: Index,
 
     --dry-run will still generate a tasks file, but not add the output product to the database.
     """
-    app_config_path = Path(app_config).resolve()
-    app_config = paths.read_document(app_config_path)
-    app_config['app_config_path'] = app_config_path  # Save path to config for recording in dataset metadata
+    app_config_file = Path(app_config).resolve()
+    app_config = paths.read_document(app_config_file)
 
     if not time_range or not all(time_range):
         query_args = Query(index=index).search_terms
@@ -492,6 +491,10 @@ def generate(index: Index,
         query_args = Query(index=index, time=time_range).search_terms
 
     fc_config = _make_fc_config(index, app_config, dry_run)
+
+    # Patch in config file location, for recording in dataset metadata
+    fc_config['app_config_file'] = app_config_file
+
     fc_tasks = _make_fc_tasks(index, fc_config, query=query_args)
 
     num_tasks_saved = save_tasks(
