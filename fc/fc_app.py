@@ -379,12 +379,18 @@ def _do_fc_task(config, task):
     return datasets
 
 
-def _process_result(index: Index, result):
+def _index_datasets(index: Index, result):
     _LOG.info(f'Start Indexing {len(result.values)} datasets')
 
     for dataset in result.values:
         index.datasets.add(dataset, sources_policy='skip')
         _LOG.info('Dataset %s added at %s', dataset.id, dataset.uris)
+
+def _skip_indexing_and_only_log(result):
+    _LOG.info(f'Skipping Indexing {len(result.values)} datasets')
+
+    for dataset in result.values:
+        _LOG.info('Dataset %s created at %s but not indexed', dataset.id, dataset.uris)
 
 
 @click.group(help='Datacube Fractional Cover')
@@ -514,6 +520,8 @@ def generate(index: Index,
 @click.option('--input-filename', required=True,
               help='A Tasks File to process',
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
+@click.option('--skip-indexing', is_flag=True, default=False,
+              help="Generate output files but don't record to a database index")
 @with_qsub_runner()
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
@@ -521,6 +529,7 @@ def run(index,
         dry_run: bool,
         input_filename: str,
         runner: TaskRunner,
+        skip_indexing: bool,
         **kwargs):
     config, tasks = task_app.load_tasks(input_filename)
     work_dir = Path(input_filename).parent
@@ -543,7 +552,11 @@ def run(index,
 
     _LOG.info('Starting Fractional Cover processing...')
     task_func = partial(_do_fc_task, config)
-    process_func = partial(_process_result, index)
+
+    if skip_indexing:
+        process_func = _skip_indexing_and_only_log
+    else:
+        process_func = partial(_index_datasets, index)
 
     try:
         runner(task_desc, tasks, task_func, process_func)
