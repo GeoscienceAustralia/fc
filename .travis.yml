@@ -55,7 +55,7 @@ after_success:
     - coveralls
 
 before_deploy:
-    - python setup.py sdist bdist_wheel
+    - pip wheel --no-deps -w .
 
 deploy:
  - provider: s3
