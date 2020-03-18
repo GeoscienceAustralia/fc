@@ -4,6 +4,8 @@ Setup
 
 This compiles all the Fortran extensions.
 """
+import os
+
 from numpy.distutils.core import Extension, setup
 
 unmix_ext = Extension(
@@ -18,6 +20,7 @@ unmix_ext = Extension(
 )
 unmix_ext.optional = True  # For platforms without FORTRAN, we will fall back to a SciPy implementation
 
+config_files = ['config/' + name for name in os.listdir('config')]
 setup(
     name='fc',
     description='Geoscience Australia - Fractional Cover for Digital Earth Australia',
@@ -28,7 +31,7 @@ setup(
     maintainer_email='earth.observation@ga.gov.au',
     packages=['fc', 'fc.unmix'],
     data_files=[
-        ('fc/config/', ['config/ls5_fc_albers.yaml', 'config/ls7_fc_albers.yaml', 'config/ls8_fc_albers.yaml'])],
+        ('fc/config/', config_files)],
     classifiers=[
         'Programming Language :: Python :: 3.6',
     ],

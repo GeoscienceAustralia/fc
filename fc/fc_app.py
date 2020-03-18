@@ -386,6 +386,7 @@ def _index_datasets(index: Index, result):
         index.datasets.add(dataset, sources_policy='skip')
         _LOG.info('Dataset %s added at %s', dataset.id, dataset.uris)
 
+
 def _skip_indexing_and_only_log(result):
     _LOG.info(f'Skipping Indexing {len(result.values)} datasets')
 
@@ -460,7 +461,7 @@ def save_tasks(config, tasks, output_file):
     return i - 1
 
 
-@cli.command(help='Generate Tasks into file and Queue PBS job to process them')
+@cli.command(help='Generate Tasks into a queue file for later processing')
 @click.option('--app-config', help='Fractional Cover configuration file',
               required=True,
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
@@ -482,7 +483,7 @@ def generate(index: Index,
              dry_run: bool,
              time_range: Tuple[datetime, datetime]):
     """
-    Generate Tasks into file and Queue PBS job to process them.
+    Generate Tasks into a queue file.
 
     By default, also ensures the Output Product is present in the database.
 
