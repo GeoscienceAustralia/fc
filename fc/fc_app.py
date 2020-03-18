@@ -255,14 +255,9 @@ def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers',
 
 
 def _make_fc_tasks(index: Index,
-                   config: dict,
-                   query: dict):
+                   config: dict):
     """
     Generate an iterable of 'tasks', matching the provided filter parameters.
-    Tasks can be generated for:
-    - all of time
-    - 1 particular year
-    - a range of years2019-05-16 14:51:51.6230002019-05-2019-05-16 14:51:51.62300016 14:51:51.623000
     """
     input_product = config['nbart_product']
     output_product = config['fc_product']
@@ -480,8 +475,7 @@ def save_tasks(config, tasks, output_file):
 def generate(index: Index,
              app_config: str,
              output_filename: str,
-             dry_run: bool,
-             time_range: Tuple[datetime, datetime]):
+             dry_run: bool):
     """
     Generate Tasks into a queue file.
 
@@ -492,17 +486,12 @@ def generate(index: Index,
     app_config_file = Path(app_config).resolve()
     app_config = paths.read_document(app_config_file)
 
-    if not time_range or not all(time_range):
-        query_args = Query(index=index).search_terms
-    else:
-        query_args = Query(index=index, time=time_range).search_terms
-
     fc_config = _make_fc_config(index, app_config, dry_run)
 
     # Patch in config file location, for recording in dataset metadata
     fc_config['app_config_file'] = app_config_file
 
-    fc_tasks = _make_fc_tasks(index, fc_config, query=query_args)
+    fc_tasks = _make_fc_tasks(index, fc_config)
 
     num_tasks_saved = save_tasks(
         fc_config,
