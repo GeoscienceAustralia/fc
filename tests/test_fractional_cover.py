@@ -1,16 +1,15 @@
 """
 Test functions for Fractional Cover App components
 """
+import datetime
 import os
 from pathlib import Path
-import datetime
 
 import xarray as xr
 
 import datacube.utils.geometry
 from datacube.model import Measurement
-from fc.fc_app import tif_filenames, all_files_exist, _estimate_job_size, \
-    _get_filename
+from fc.fc_app import tif_filenames, all_files_exist, _get_filename
 from fc.fractional_cover import fractional_cover
 
 
@@ -70,7 +69,7 @@ def test_fractional_cover_lazy(sr_filepath, fc_filepath):
 
 
 def open_dataset(file_path, **kwargs):
-    ds = xr.open_dataset(file_path, mask_and_scale=False, drop_variables='crs',  **kwargs)
+    ds = xr.open_dataset(file_path, mask_and_scale=False, drop_variables='crs', **kwargs)
     ds.attrs['crs'] = datacube.utils.geometry.CRS('EPSG:32754')
     return ds
 
@@ -100,14 +99,7 @@ def test_all_files_exist():
     assert all_files_exist(filenames_dict.values())
 
 
-def test_estimate_job_size():
-    nodes, wall_time_mins = _estimate_job_size(60)
-    assert nodes == 1
-    assert wall_time_mins == '40m'
-
-
 def test_get_filename():
-
     class Fake(object):
         pass
 
@@ -128,7 +120,6 @@ def test_get_filename():
 
 
 def test_get_filename3():
-
     class Fake(object):
         pass
 
@@ -150,7 +141,6 @@ def test_get_filename3():
 
 
 def test_get_filename4():
-
     class Fake(object):
         pass
 

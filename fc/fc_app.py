@@ -6,15 +6,15 @@ Specifically intended for running in the PBS job queue system at the NCI.
 Following cli commands are supported:
 1. datacube-fc list
 2. datacube-fc ensure-products
-3. datacube-fc submit
 4. datacube-fc generate
 5. datacube-fc run
 """
+import itertools
 import logging
 import os
 import re
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from time import time as time_now
@@ -22,32 +22,25 @@ from typing import Tuple, Union, Iterable
 
 import click
 import xarray
-from boltons import fileutils
-from math import ceil
-from pandas import to_datetime
 import yaml
+from boltons import fileutils
+from pandas import to_datetime
 
 from datacube import Datacube
-from datacube.api.query import Query
+from datacube.drivers.netcdf import write_dataset_to_netcdf
+from datacube.helpers import write_geotiff
 from datacube.index._api import Index
 from datacube.model import DatasetType, Dataset
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.testutils import io
-from datacube.utils import uri_to_local_path
-
-try:
-    from datacube.drivers.netcdf import write_dataset_to_netcdf
-except ImportError:
-    from datacube.storage.storage import write_dataset_to_netcdf
-from datacube.helpers import write_geotiff
 from datacube.ui import click as ui
-from datacube.utils import geometry
 from datacube.ui import task_app
+from datacube.ui.task_app import pickle_stream
+from datacube.utils import geometry
 from datacube.utils import unsqueeze_dataset
-from digitalearthau import paths, serialise
-from digitalearthau.qsub import QSubLauncher, with_qsub_runner, TaskRunner
+from digitalearthau import paths
+from digitalearthau.qsub import with_qsub_runner, TaskRunner
 from digitalearthau.runners.model import TaskDescription
-from digitalearthau.runners.util import submit_subjob, init_task_app
 from fc import __version__
 from fc.fractional_cover import fractional_cover
 
@@ -112,7 +105,6 @@ def _make_fc_config(index: Index, config: dict, dry_run):
 
 
 def _build_variable_params(config: dict) -> dict:
-
     variable_params = {}
     for mapping in config['measurements']:
         measurement_name = mapping['name']
@@ -241,7 +233,7 @@ def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers',
     select id
     from agdc.dataset
     where dataset_type_ref = (select id from agdc.dataset_type where name = %(source_product)s)
-      and archived is NULL
+      and archived is null
     -- EXCEPT
         except
     -- All the ids of the source product which have a destination product dataset id derived from them
@@ -252,7 +244,7 @@ def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers',
                           from agdc.dataset
                           where dataset_type_ref =
                                 (select id from agdc.dataset_type where name = %(derived_product)s)
-                            and archived is NULL);"""
+                            and archived is null);"""
 
     cursor = index._db._engine.execute(query, source_product=source_product, derived_product=derived_product)
 
@@ -262,21 +254,16 @@ def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers',
 
 
 def _make_fc_tasks(index: Index,
-                   config: dict,
-                   query: dict):
+                   config: dict):
     """
     Generate an iterable of 'tasks', matching the provided filter parameters.
-    Tasks can be generated for:
-    - all of time
-    - 1 particular year
-    - a range of years2019-05-16 14:51:51.6230002019-05-2019-05-16 14:51:51.62300016 14:51:51.623000
     """
     input_product = config['nbart_product']
     output_product = config['fc_product']
 
     dataset_gen = datasets_that_need_to_be_processed(index, input_product.name, output_product.name)
 
-    return(
+    return (
         dict(
             dataset=dataset,
             filename_dataset=_get_filename(config, dataset)
@@ -386,7 +373,7 @@ def _do_fc_task(config, task):
     return datasets
 
 
-def _process_result(index: Index, result):
+def _index_datasets(index: Index, result):
     _LOG.info(f'Start Indexing {len(result.values)} datasets')
 
     for dataset in result.values:
@@ -394,20 +381,11 @@ def _process_result(index: Index, result):
         _LOG.info('Dataset %s added at %s', dataset.id, dataset.uris)
 
 
-# pylint: disable=invalid-name
-tag_option = click.option('--tag', type=str,
-                          default='notset',
-                          help='Unique id for the job')
+def _skip_indexing_and_only_log(result):
+    _LOG.info(f'Skipping Indexing {len(result.values)} datasets')
 
-# pylint: disable=invalid-name
-pbs_email_options = click.option('--email-options', '-m', default='abe',
-                                 type=click.Choice(['a', 'b', 'e', 'n', 'ae', 'ab', 'be', 'abe']),
-                                 help='Send Email when execution is, \n'
-                                      '[a = aborted | b = begins | e = ends | n = do not send email]')
-
-# pylint: disable=invalid-name
-pbs_email_id = click.option('--email-id', '-M', default='nci.monitor@dea.ga.gov.au',
-                            help='Email Recipient List')
+    for dataset in result.values:
+        _LOG.info('Dataset %s created at %s but not indexed', dataset.id, dataset.uris)
 
 
 @click.group(help='Datacube Fractional Cover')
@@ -459,341 +437,98 @@ def ensure_products(index, app_config, dry_run):
                 f"FC input config file")
 
 
-def _estimate_job_size(num_tasks):
-    """ Translate num_tasks to number of nodes and walltime
-    """
-    max_nodes = 8
-    cores_per_node = 48  # Gadi: 48 CPUs/node, 192 GB RAM/node, 400 GB PBS_JOBFS/node.
-    task_time_mins = 20
+def save_tasks(config, tasks, output_file):
+    """Saves the config
 
-    # TODO: Tune this code:
-    # "We have found for best throughput 25 nodes can produce about 11.5 tiles per minute per node,
-    # with a CPU efficiency of about 96%."
-    if num_tasks < max_nodes * cores_per_node:
-        nodes = ceil(num_tasks / cores_per_node / 4)  # If fewer tasks than max cores, try to get 4 tasks to a core
+    :param config: dict of configuration options common to all tasks
+    :param tasks:
+    :param str output_file: Name of output file
+    :return: Number of tasks saved to the file
+    """
+    i = pickle_stream(itertools.chain([config], tasks), output_file)
+    if i <= 1:
+        # Only saved the config, no tasks!
+        os.remove(output_file)
+        return 0
     else:
-        nodes = max_nodes
-
-    tasks_per_cpu = ceil(num_tasks / (nodes * cores_per_node))
-    wall_time_mins = '{mins}m'.format(mins=(task_time_mins * tasks_per_cpu))
-
-    return nodes, wall_time_mins
+        _LOG.info('Saved config and %d tasks to %s', i - 1, output_file)
+    return i - 1
 
 
-@cli.command(help='Kick off two stage PBS job')
-@click.option('--project', '-P', default='u46')
-@click.option('--queue', '-q', default='normal',
-              type=click.Choice(['normal', 'express']))
-@click.option('--year', 'time_range',
-              callback=task_app.validate_year,
-              help='Limit the process to a particular year')
-@click.option('--no-qsub', is_flag=True, default=False,
-              help="Skip submitting job")
-@tag_option
-@pbs_email_options
-@pbs_email_id
-@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
-@task_app.app_config_option
-@ui.config_option_exposed
-@ui.verbose_option
-@ui.pass_index(app_name=APP_NAME)
-def submit(index: Index,
-           app_config: str,
-           project: str,
-           queue: str,
-           no_qsub: bool,
-           time_range: Tuple[datetime, datetime],
-           tag: str,
-           email_options: str,
-           email_id: str,
-           dry_run: bool,
-           local: bool,
-           config: tuple):
-    """
-    Kick off two stage PBS job
-
-    Stage 1 (Generate task file):
-        The task-app machinery loads a config file, from a path specified on the
-        command line, into a dict.
-
-        If dry is enabled, a dummy DatasetType is created for tasks generation without indexing
-        the product in the database.
-        If dry run is disabled, generate tasks into file and queue PBS job to process them.
-
-    Stage 2 (Run):
-        During normal run, following are performed:
-           1) Tasks shall be yielded for dispatch to workers.
-           2) Load data
-           3) Run FC algorithm
-           4) Attach metadata
-           5) Write output files and
-           6) Finally index the newly created FC output netCDF files
-
-        If dry run is enabled, application only prepares a list of output files to be created and does not
-        record anything in the database.
-    """
-
-    submit_command(index,
-                   app_config,
-                   project,
-                   queue,
-                   no_qsub,
-                   time_range,
-                   tag,
-                   email_options,
-                   email_id,
-                   dry_run,
-                   local,
-                   config)
-    return 0
-
-
-def submit_command(index: Index,
-                   app_config: str,
-                   project: str,
-                   queue: str,
-                   no_qsub: bool,
-                   time_range: Tuple[datetime, datetime],
-                   tag: str,
-                   email_options: str,
-                   email_id: str,
-                   dry_run: bool,
-                   local: bool,
-                   config: tuple):
-    """
-    Kick off a two stage PBS job.
-
-    :return: Created task description
-    """
-    _LOG.info('Tag: %s', tag)
-
-    app_config_path = Path(app_config).resolve()
-    app_config = paths.read_document(app_config_path)
-
-    if not time_range or not all(time_range):
-        query_args = Query(index=index).search_terms
-    else:
-        query_args = Query(index=index, time=time_range).search_terms
-
-    task_desc, task_path = init_task_app(
-        job_type="fc",
-        source_products=[app_config['source_product']],
-        output_products=[app_config['output_product']],
-        # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
-        datacube_query_args=query_args,
-        app_config_path=app_config_path,
-        pbs_project=project,
-        pbs_queue=queue
-    )
-    _LOG.info("Created task description: %s", task_path)
-
-    if no_qsub:
-        _LOG.info('Skipping submission due to --no-qsub')
-        # currently just used for teting
-        return task_path
-
-    # If dry run is not enabled just pass verbose option
-    dry_run_option = '--dry-run' if dry_run else '-v'
-    extra_qsub_args = '-M {0} -m {1}'.format(email_id, email_options)
-    extra_qsub_args += '-l storage=gdata/v10+gdata/fk4+gdata/rs0'
-
-    # Append email options and email id to the PbsParameters dict key, extra_qsub_args
-
-    if not local:
-        submit_subjob(
-            name='generate',
-            task_desc=task_desc,
-            command=[
-                'generate', '-vv',
-                '--task-desc', str(task_path),
-                '--tag', tag,
-                '--log-queries',
-                '--email-id', email_id,
-                '--email-options', email_options,
-                '--config', config[0],
-                dry_run_option,
-            ],
-            qsub_params=dict(
-                name='fc-generate-{}'.format(tag),
-                mem='medium',
-                wd=True,
-                nodes=1,
-                walltime='1h'
-            )
-        )
-    else:
-        _LOG.info("local task execution! WARNING: This has only been tested for 1 or 2 task jobs.")
-        generate_command(index=index,
-                         task_desc_file=str(task_path),
-                         tag=tag,
-                         no_qsub=False,
-                         email_options=email_options,
-                         email_id=email_id,
-                         dry_run=dry_run,
-                         local=local,
-                         config=config)
-    return 0
-
-
-@cli.command(help='Generate Tasks into file and Queue PBS job to process them')
-@click.option('--no-qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
-@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
+@cli.command(help='Generate Tasks into a queue file for later processing')
+@click.option('--app-config', help='Fractional Cover configuration file',
               required=True,
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
-@tag_option
-@pbs_email_options
-@pbs_email_id
-@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--local', is_flag=True, default=False, help='Experimental. Run the tasks locally; not on qsub.')
+@click.option('--output-filename',
+              help='Filename to write the list of tasks to.',
+              required=True,
+              type=click.Path(exists=False, writable=True, dir_okay=False))
+@click.option('--year', 'time_range',
+              callback=task_app.validate_year,
+              help='Limit the process to a particular year, or "-" separated range of years.')
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Check product definition without modifying the database')
 @ui.verbose_option
-@ui.config_option_exposed
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
 def generate(index: Index,
-             task_desc_file: str,
-             no_qsub: bool,
-             tag: str,
-             email_options: str,
-             email_id: str,
-             dry_run: bool,
-             local: bool,
-             config: tuple):
+             app_config: str,
+             output_filename: str,
+             dry_run: bool):
     """
-    Generate Tasks into file and Queue PBS job to process them.
+    Generate Tasks into a queue file.
 
-    If dry run is enabled, do not add the new products to the database.
+    By default, also ensures the Output Product is present in the database.
+
+    --dry-run will still generate a tasks file, but not add the output product to the database.
     """
-    return generate_command(index,
-                            task_desc_file,
-                            no_qsub,
-                            tag,
-                            email_options,
-                            email_id,
-                            dry_run,
-                            local,
-                            config)
+    app_config_file = Path(app_config).resolve()
+    app_config = paths.read_document(app_config_file)
 
+    fc_config = _make_fc_config(index, app_config, dry_run)
 
-def generate_command(index: Index,
-                     task_desc_file: str,
-                     no_qsub: bool,
-                     tag: str,
-                     email_options: str,
-                     email_id: str,
-                     dry_run: bool,
-                     local: bool,
-                     config: tuple):
-    _LOG.info('Tag: %s', tag)
+    # Patch in config file location, for recording in dataset metadata
+    fc_config['app_config_file'] = app_config_file
 
-    config_fc, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
-    fc_tasks = _make_fc_tasks(index, config_fc, query=task_desc.parameters.query)
+    fc_tasks = _make_fc_tasks(index, fc_config)
 
-    num_tasks_saved = task_app.save_tasks(
-        config_fc,
+    num_tasks_saved = save_tasks(
+        fc_config,
         fc_tasks,
-        task_desc.runtime_state.task_serialisation_path
+        output_filename
     )
     _LOG.info('Found %d tasks', num_tasks_saved)
 
-    if not num_tasks_saved:
-        _LOG.info("No tasks. Finishing.")
-        return 0
-
-    nodes, walltime = _estimate_job_size(num_tasks_saved)
-    _LOG.info('Will request %d nodes and %s time', nodes, walltime)
-
-    if no_qsub:
-        _LOG.info('Skipping submission due to --no-qsub')
-        return 0
-
-    # If dry run is not enabled just pass verbose option
-    dry_run_option = '--dry-run' if dry_run else '-v'
-    extra_qsub_args = '-M {0} -m {1}'.format(email_id, email_options)
-    extra_qsub_args += '-l storage=gdata/v10+gdata/fk4+gdata/rs0'
-
-    # Append email options and email id to the PbsParameters dict key, extra_qsub_args
-    task_desc.runtime_state.pbs_parameters.extra_qsub_args.extend(extra_qsub_args.split(' '))
-
-    if not local:
-        submit_subjob(
-            name='run',
-            task_desc=task_desc,
-            command=[
-                'run',
-                '-vv',
-                '--task-desc', str(task_desc_file),
-                '--celery', 'pbs-launch',
-                '--tag', tag,
-                '--config', config[0],
-                dry_run_option,
-            ],
-            qsub_params=dict(
-                name='fc-run-{}'.format(tag),
-                mem='medium',
-                wd=True,
-                nodes=nodes,
-                walltime=walltime
-            ),
-        )
-    else:
-        _LOG.info("local task execution! WARNING: This has only been tested for 1 or 2 task jobs.")
-        runner = TaskRunner()
-        run_command(index,
-                    dry_run=dry_run,
-                    tag=tag,
-                    task_desc_file=str(task_desc_file),
-                    runner=runner)
-    return 0
-
-
-def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:
-    task_desc = serialise.load_structure(task_desc_path, TaskDescription)
-
-    task_time: datetime = task_desc.task_dt
-    app_config = task_desc.runtime_state.config_path
-
-    config = paths.read_document(app_config)
-
-    # TODO: This carries over the old behaviour of each load. Should probably be replaced with *tag*
-    config['task_timestamp'] = int(task_time.timestamp())
-    config['app_config_file'] = Path(app_config)
-    config = _make_fc_config(index, config, dry_run)
-
-    return config, task_desc
-
 
 @cli.command(help='Process generated task file')
-@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
-              required=True,
+@click.option('--dry-run', is_flag=True, default=False)
+@click.option('--input-filename', required=True,
+              help='A Tasks File to process',
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
+@click.option('--skip-indexing', is_flag=True, default=False,
+              help="Generate output files but don't record to a database index")
 @with_qsub_runner()
-@task_app.load_tasks_option
-@tag_option
-@ui.config_option
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
 def run(index,
         dry_run: bool,
-        tag: str,
-        task_desc_file: str,
-        qsub: QSubLauncher,
+        input_filename: str,
         runner: TaskRunner,
-        *args, **kwargs):
-    """
-    Process generated task file. If dry run is enabled, only check for the existing files
-    """
-    return run_command(index, dry_run, tag, task_desc_file, runner)
+        skip_indexing: bool,
+        **kwargs):
+    config, tasks = task_app.load_tasks(input_filename)
+    work_dir = Path(input_filename).parent
 
-
-def run_command(index,
-                dry_run: bool,
-                tag: str,
-                task_desc_file: str,
-                runner: TaskRunner):
-    task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
-    config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
+    # TODO: Get rid of this completely
+    task_desc = TaskDescription(
+        type_='fc',
+        task_dt=datetime.utcnow().astimezone(timezone.utc),
+        events_path=work_dir,
+        logs_path=work_dir,
+        jobs_path=work_dir,
+        parameters=None,
+        runtime_state=None,
+    )
 
     if dry_run:
         _LOG.info('Starting Fractional Cover Dry Run...')
@@ -801,9 +536,12 @@ def run_command(index,
         return 0
 
     _LOG.info('Starting Fractional Cover processing...')
-    _LOG.info('Tag: %r', tag)
     task_func = partial(_do_fc_task, config)
-    process_func = partial(_process_result, index)
+
+    if skip_indexing:
+        process_func = _skip_indexing_and_only_log
+    else:
+        process_func = partial(_index_datasets, index)
 
     try:
         runner(task_desc, tasks, task_func, process_func)
@@ -812,7 +550,7 @@ def run_command(index,
         if "Error 104" in err:
             _LOG.info("Processing completed and shutdown was initiated. Exception: %s", str(err))
         else:
-            _LOG.info("Exception during processing: %s", str(err))
+            _LOG.info("Exception during processing: %s", err)
     finally:
         runner.stop()
     return 0
