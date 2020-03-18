@@ -47,7 +47,6 @@ unmix_ext.optional = True  # For platforms without FORTRAN, we will fall back to
 
 setup(
     name='fc',
-    version=versioneer.get_version(),
     cmdclass=my_cmdclass,
     description='Geoscience Australia - Fractional Cover for Digital Earth Australia',
     long_description=open('README.rst', 'r').read(),
