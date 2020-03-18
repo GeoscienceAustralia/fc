@@ -27,7 +27,6 @@ from boltons import fileutils
 from pandas import to_datetime
 
 from datacube import Datacube
-from datacube.api.query import Query
 from datacube.drivers.netcdf import write_dataset_to_netcdf
 from datacube.helpers import write_geotiff
 from datacube.index._api import Index
@@ -234,7 +233,7 @@ def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers',
     select id
     from agdc.dataset
     where dataset_type_ref = (select id from agdc.dataset_type where name = %(source_product)s)
-      and archived is NULL
+      and archived is null
     -- EXCEPT
         except
     -- All the ids of the source product which have a destination product dataset id derived from them
@@ -245,7 +244,7 @@ def datasets_that_need_to_be_processed(index, source_product='ls8_nbart_albers',
                           from agdc.dataset
                           where dataset_type_ref =
                                 (select id from agdc.dataset_type where name = %(derived_product)s)
-                            and archived is NULL);"""
+                            and archived is null);"""
 
     cursor = index._db._engine.execute(query, source_product=source_product, derived_product=derived_product)
 
@@ -499,10 +498,6 @@ def generate(index: Index,
         output_filename
     )
     _LOG.info('Found %d tasks', num_tasks_saved)
-
-    if not num_tasks_saved:
-        _LOG.info("No tasks. Finishing.")
-        return 0
 
 
 @cli.command(help='Process generated task file')
