@@ -550,7 +550,7 @@ def run(index,
         if "Error 104" in err:
             _LOG.info("Processing completed and shutdown was initiated. Exception: %s", str(err))
         else:
-            _LOG.info("Exception during processing: %s", str(err))
+            _LOG.info("Exception during processing: %s", err)
     finally:
         runner.stop()
     return 0
