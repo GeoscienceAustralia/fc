@@ -463,9 +463,6 @@ def save_tasks(config, tasks, output_file):
               help='Filename to write the list of tasks to.',
               required=True,
               type=click.Path(exists=False, writable=True, dir_okay=False))
-@click.option('--year', 'time_range',
-              callback=task_app.validate_year,
-              help='Limit the process to a particular year, or "-" separated range of years.')
 @click.option('--dry-run', is_flag=True, default=False,
               help='Check product definition without modifying the database')
 @ui.verbose_option
