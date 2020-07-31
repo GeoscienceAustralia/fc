@@ -39,31 +39,30 @@ class FractionalCover(Transformation):
     Requires bands named 'green', 'red', 'nir', 'swir1', 'swir2'
     """
 
-    def __init__(self, regression_coefficients=None, c2_scaling=False):
+    def __init__(self, regression_coefficients=None, c2_scaling=False, test_mode=False):
         if regression_coefficients is None:
             regression_coefficients = {band: [0, 1]
                                        for band in ['green', 'red', 'nir', 'swir1', 'swir2']
                                        }
         self.regression_coefficients = regression_coefficients
         self.c2_scaling = c2_scaling
+        self.test_mode = test_mode
 
     def measurements(self, input_measurements):
         return {m['name']: Measurement(**m) for m in FC_MEASUREMENTS}
 
     def compute(self, data):
-        # Typically creates a list of dictionaries looking like [{time: 1234}, {time: 1235}, ...]
+        if self.test_mode:
+            # Downsample to a size which will run quickly
+            data = data.isel(x=slice(0, 100), y=slice(0, 100))
         if self.c2_scaling:
             # The C2 data need to be scaled
             data = scale_usgs_collection2(data)
 
-        sel = [dict(p)
-               for p in product(*[[(i.name, i.item()) for i in c]
-                                  for v, c in data.coords.items()
-                                  if v not in data.geobox.dims])]
         fc = []
         measurements = [Measurement(**m) for m in FC_MEASUREMENTS]
-        for s in sel:
-            fc.append(fractional_cover(data.sel(**s), measurements, self.regression_coefficients))
+        for time_idx in range(len(data.time)):
+            fc.append(fractional_cover(data.isel(time=time_idx), measurements, self.regression_coefficients))
         fc = xr.concat(fc, dim='time')
         fc.attrs['crs'] = data.attrs['crs']
         try:
