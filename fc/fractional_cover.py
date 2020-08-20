@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover
     dask_array_type = ()
 
 from datacube import Datacube
-from datacube.storage.masking import valid_data_mask
+from datacube.utils.masking import valid_data_mask
 from datacube.utils import iter_slices
 
 from . import endmembers
@@ -25,8 +25,7 @@ from . import endmembers
 try:
     from .unmix import unmiximage
 except ImportError:
-    print('WARNING: Fortran unmixing cannot be loaded, falling back to scipy')
-    from . import unmiximage_fallback as unmiximage
+    raise Exception('ERROR: Fortran unmixing cannot be loaded.')
 
 DEFAULT_MEASUREMENTS = [{
     'name': 'PV',
