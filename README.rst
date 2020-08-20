@@ -16,7 +16,7 @@ Installation
 
 The easiest way to install Fractional Cover is::
 
-    pip install --extra-index-url=https://packages.dea.gadevs.ga/ fc
+    pip install --extra-index-url=https://packages.dea.ga.gov.au/ fc
 
 This package includes the compiled Fortran extensions to run about 15 times faster than the Python+scipy version
 you get by default without a Fortran compiler.
