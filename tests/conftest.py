@@ -1,14 +1,12 @@
-from __future__ import print_function, absolute_import
-
-import pytest
-from pathlib import Path
-
 '''
 py.test configuration plugin
 
 This module defines any fixtures or other extensions to py.test to be used throughout the
 tests in this and sub packages.
 '''
+
+import pytest
+from pathlib import Path
 
 
 @pytest.fixture
