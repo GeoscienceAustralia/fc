@@ -10,36 +10,42 @@ jobs:
     strategy:
       matrix:
         python-version: [ 3.6, 3.8, 3.9 ]
+    name: Airflow ${{ matrix.python-version }}
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+      - name: Setup environment
+        uses: conda-incubator/setup-miniconda@v2
         with:
+          auto-update-conda: true
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
+          activate-environment: fc
+          mamba-version: "*"
+          channels: conda-forge,defaults
+          channel-priority: true
+      - run: |
+          conda info
+          conda list
+          conda config --show-sources
+          conda config --show
+          python --version
+          which python
+      - name: Install conda dependencies
+        run: mamba install datacube gdal # gdal is required by digitalearthau??
+      - name: Install pip deps
         run: |
-          sudo apt-get install -y \
-                 libproj-dev \
-                 proj-bin \
-                 libgdal-dev \
-                 libgeos-dev \
-                 libgeos++-dev \
-                 libudunits2-dev \
-                 libnetcdf-dev \
-                 libhdf4-alt-dev \
-                 libhdf5-serial-dev \
-                 gfortran
-          python -m pip install --upgrade pip
-
-          pip install GDAL=="$(gdal-config --version)"
-
-          pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets digitalearthau
-          pip install -r requirements.txt
-          pip install pylint==1.7.4 yamllint pytest-cov pycodestyle coveralls netCDF4==1.3.1
+          pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets3 digitalearthau
+          pip install pycodestyle pylint pylint-cov
+      - name: Build package
+        run: pip wheel --no-deps -w dist .
+      - name: Install from directory
+        run: pip install .
       - name: Check code
         run: ./check-code.sh
 
-      - name: Archive production artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
           name: packages
