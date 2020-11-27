@@ -37,7 +37,7 @@ jobs:
       - name: Install pip deps
         run: |
           pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets3 digitalearthau
-          pip install pycodestyle pylint pylint-cov
+          pip install pycodestyle pylint pytest-cov pytest
       - name: Build package
         run: pip wheel --no-deps -w dist .
       - name: Install from directory
