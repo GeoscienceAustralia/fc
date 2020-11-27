@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from functools import partial
 from typing import Sequence, Mapping
 
@@ -185,8 +183,8 @@ def apply_coefficients_for_band(numpyarray, band, regression_coefficients):
     :return: updated array
     """
     band_coefficients = regression_coefficients[band]
-    coefficient0 = band_coefficients[0]
-    coefficient1 = band_coefficients[1]
+    coefficient0 = band_coefficients[0]  # noqa: F841
+    coefficient1 = band_coefficients[1]  # noqa: F841
     numpyarray = numexpr.evaluate('coefficient0 + (coefficient1 * numpyarray)')
     return numpyarray
 

@@ -33,17 +33,21 @@ jobs:
           python --version
           which python
       - name: Install conda dependencies
-        run: mamba install datacube gdal # gdal is required by digitalearthau??
+        run: mamba install datacube gdal pycodestyle pylint pytest-cov pytest numexpr # gdal is required by digitalearthau??
       - name: Install pip deps
         run: |
           pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets3 digitalearthau
-          pip install pycodestyle pylint pytest-cov pytest
       - name: Build package
-        run: pip wheel --no-deps -w dist .
-      - name: Install from directory
-        run: pip install .
+        run: |
+            pip wheel --no-deps -w dist .
+            ls -l dist
+      - name: Install from wheel
+        run: pip install dist/*.whl
       - name: Check code
-        run: ./check-code.sh
+        run: |
+            pip freeze
+            python -c 'import fc.unmix'
+            ./check-code.sh
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v2

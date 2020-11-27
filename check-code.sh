@@ -11,4 +11,3 @@ pylint -j 2 --ignore-patterns='.+\.so' --reports no fc
 # Run tests, taking coverage.
 # Users can specify extra folders as arguments.
 pytest -r sx --cov fc --durations=5 fc tests $@
-
