@@ -40,14 +40,15 @@ jobs:
       - name: Build package
         run: |
             pip wheel --no-deps -w dist .
-            ls -l dist
       - name: Install from wheel
-        run: pip install dist/*.whl
+        run: |
+            pip install -e .  # Don't install the wheel, getting code coverage from tests is nigh on impossible
       - name: Check code
         run: |
             pip freeze
             python -c 'import fc.unmix'
             ./check-code.sh
+            ls -la
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
@@ -55,26 +56,10 @@ jobs:
           name: packages
           path: dist
 
-      - name: Coveralls
-        uses: coverallsapp/github-action@master
+      - uses: codecov/codecov-action@v1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Coveralls Parallel
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.github_token }}
-          flag-name: python-${{ matrix.python-version }}
-          parallel: true
-
-  finish:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Coveralls Finished
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.github_token }}
-          parallel-finished: true
+          env_vars: OS,PYTHON
+          file: ./coverage.xml
 
   deploy-packages:
 #   deploy:
