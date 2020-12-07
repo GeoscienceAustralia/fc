@@ -1,18 +1,37 @@
-Fractional Cover (fc)
-=====================
+=======================
+ Fractional Cover (FC)
+=======================
 
 |Build Status| |Coverage Status|
 
-Fractional Cover measures the photosynthetic, non-photosynthetic and
-bare earth components of a Landsat image.
+`Fractional Cover`_ is a remote sensing algorithm which measures the
+photosynthetic, non-photosynthetic and bare earth components of a Landsat image.
 
-Fractional cover is available as a part of Digital Earth Australia environment modules on the NCI.
-These can be used after logging into the NCI and running:
+This repository implements Fractional Cover as used by `Digital Earth Australia`_
+for the production of the `Fractional Cover Data Product <Fractional Cover>`_.
+The implementation is Python, with the core algorithm in Fortran.
 
-    module load dea
+Data production is either by a command line application that runs on the NCI_,
+or a `Virtual Product`_ class run by `Datacube Alchemist`_ on AWS.
+
+
+.. contents::
+
+.. _Fractional Cover: https://cmi.ga.gov.au/data-products/dea/119/dea-fractional-cover-landsat
+.. _NCI: https://www.nci.org.au/
+.. _Datacube Alchemist: https://github.com/opendatacube/datacube-alchemist/
+.. _Virtual Product: https://datacube-core.readthedocs.io/en/latest/dev/api/virtual-products.html
+.. _Digital Earth Australia: https://www.ga.gov.au/dea
+
+
+.. |Build Status| image:: https://github.com/GeoscienceAustralia/fc/workflows/Tests/badge.svg
+    :target: https://github.com/GeoscienceAustralia/fc/actions?query=workflow%3ATests
+
+.. |Coverage Status| image:: https://codecov.io/gh/GeoscienceAustralia/fc/branch/master/graph/badge.svg?token=wpeulGrrUT
+    :target: https://codecov.io/gh/GeoscienceAustralia/fc
 
 Installation
-~~~~~~~~~~~~
+============
 
 The easiest way to install Fractional Cover is::
 
@@ -22,20 +41,20 @@ This package includes the compiled Fortran extensions to run about 15 times fast
 you get by default without a Fortran compiler.
 
 Setup on VDI
-~~~~~~~~~~~~
+============
 
-The first time you try to use raijin PBS commands from VDI, you will need
+The first time you try to use gadi PBS commands from VDI, you will need
 to run::
 
     $ remote-hpc-cmd init
 
 See http://vdi.nci.org.au/help#heading=h.u1kl1j7vdt16 for more details.
 
-You will also need to setup datacube to work from VDI and raijin.
+You will also need to setup datacube to work from VDI and gadi.
 
 ::
 
-    $ ssh raijin "cat .pgpass" >> ~/.pgpass
+    $ ssh gadi "cat .pgpass" >> ~/.pgpass
     $ chmod 0600 ~/.pgpass
 
 See http://geoscienceaustralia.github.io/digitalearthau/connect/nci_basics.html for
@@ -49,7 +68,7 @@ The Fractional Cover application works in 2 parts:
     #. Creating the task list
     #. Check for unexpected existing files - these were most likely created during an run that did not successfully
        finish.
-    #. Submit the job to raijin.
+    #. Submit the job to gadi.
 
 To run fractional cover::
 
@@ -57,13 +76,15 @@ To run fractional cover::
     $ module load dea
 
 This will list the available app configs::
+
     $ datacube-fc list
     ls5_fc_albers.yaml
     ls7_fc_albers.yaml
     ls8_fc_albers.yaml
 
-To submit the job to `raijin`, the datacube-fc app has a the ``datacube-fc submit`` command:
+To submit the job to ``gadi``, the datacube-fc app has a the ``datacube-fc submit`` command:
 This command kick off two stage PBS job
+
     Stage 1 (Generate task file):
         The task-app machinery loads a config file, from a path specified on the
         command line, into a dict.
@@ -120,7 +141,7 @@ The config file lists the output `location` and file_path_template``, as shown i
 So here the output files are saved to ``/g/data/fk4/datacube/002/FC/LS5_TM_FC/<tile_index>/*.nc``
 
 File naming
-~~~~~~~~~~~
+===========
 
 Specify a template string used to name the output files. Uses the python ``format()`` string syntax, with the following placeholders available:
 
@@ -176,10 +197,3 @@ Algorithm developer:
 
 **Peter Scarth**
 peter.scarth@qld.gov.au
-
-
-.. |Build Status| image:: https://travis-ci.org/GeoscienceAustralia/fc.svg?branch=master
-    :target: https://travis-ci.org/GeoscienceAustralia/fc
-    
-.. |Coverage Status| image:: https://coveralls.io/repos/github/GeoscienceAustralia/fc/badge.svg?branch=master
-    :target: https://coveralls.io/github/GeoscienceAustralia/fc?branch=master

@@ -4,3 +4,6 @@ requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4", "numpy"]
 
 [tool.setuptools_scm]
 write_to = "fc/_version.py"
+
+[tool.pytest.ini_options]
+addopts = "--import-mode importlib"

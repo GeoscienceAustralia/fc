@@ -1,5 +1,4 @@
 import xarray as xr
-from itertools import product
 
 from datacube.virtual import Transformation, Measurement
 from fc import __version__
