@@ -3,6 +3,8 @@ name: Tests
 on:
   push:
   pull_request:
+  release:
+    types: [created]
 
 jobs:
   test:
@@ -10,7 +12,7 @@ jobs:
     strategy:
       matrix:
         python-version: [ 3.6, 3.8, 3.9 ]
-    name: Airflow ${{ matrix.python-version }}
+    name: Python ${{ matrix.python-version }}
     defaults:
       run:
         shell: bash -l {0}
