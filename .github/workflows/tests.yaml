@@ -79,6 +79,10 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: packages
+          path: dist
+
+      - name: Display directory structure of downloaded files
+        run: ls -lR
 
       - name: Deploy packages
         uses: jakejarvis/s3-sync-action@master
