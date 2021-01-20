@@ -3,6 +3,8 @@ name: Tests
 on:
   push:
   pull_request:
+  release:
+    types: [created]
 
 jobs:
   test:
@@ -10,7 +12,7 @@ jobs:
     strategy:
       matrix:
         python-version: [ 3.6, 3.8, 3.9 ]
-    name: Airflow ${{ matrix.python-version }}
+    name: Python ${{ matrix.python-version }}
     defaults:
       run:
         shell: bash -l {0}
@@ -33,22 +35,26 @@ jobs:
           python --version
           which python
       - name: Install conda dependencies
-        run: mamba install datacube gdal pycodestyle pylint pytest-cov pytest numexpr # gdal is required by digitalearthau??
+        run: |
+          mamba install datacube gdal pycodestyle pylint pytest-cov pytest numexpr lxml pydash python-rapidjson \
+          lxml pydash python-rapidjson ruamel.yaml structlog ciso8601 cattrs boltons dawg
+          # gdal is required by digitalearthau??
       - name: Install pip deps
         run: |
           pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets3 digitalearthau
       - name: Build package
         run: |
-            pip wheel --no-deps -w dist .
-      - name: Install from wheel
+          python setup.py sdist bdist_wheel
+      - name: Install from local dir
+        # Don't install the wheel, getting code coverage from tests is nigh on impossible
         run: |
-            pip install -e .  # Don't install the wheel, getting code coverage from tests is nigh on impossible
+          python setup.py develop
       - name: Check code
         run: |
-            pip freeze
-            python -c 'import fc.unmix'
-            ./check-code.sh
-            ls -la
+          pip freeze
+          python -c 'import fc.unmix'
+          ./check-code.sh
+          ls -la
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
