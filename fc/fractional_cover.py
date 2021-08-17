@@ -87,7 +87,7 @@ def fractional_cover(nbar_tile: xarray.Dataset,
     error_val = -1
     where = numpy.where if not isinstance(output_data, dask_array_type) else dask.array.where
 
-    def data_func(measurement):
+    def data_func(measurement, *args, **kwargs):
         band_names = ['PV', 'NPV', 'BS', 'UE']
         src_var = measurement.get('src_var', None) or measurement.get('name')
         i = band_names.index(src_var.upper())
