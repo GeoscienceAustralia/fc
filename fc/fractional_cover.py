@@ -48,8 +48,7 @@ def fractional_cover(
     measurements: Sequence[Measurement] = None,
     regression_coefficients: Mapping[str, Sequence[int]] = None,
     clip_after_regression: bool = False,
-    fc_coefficients: Mapping[str, Sequence[int]] = None)
-) -> xarray.Dataset:
+    fc_coefficients: Mapping[str, Sequence[int]] = None) -> xarray.Dataset:
     """
     Given a tile of spectral observations compute the fractional components.
     The data should be a 2D array
@@ -155,7 +154,7 @@ def compute_fractions(nbar, regression_coefficients, fc_coefficients, clip_after
         return out
     else:
         return _compute_fractions(
-            nbar, regression_coefficients, clip_after_regression=clip_after_regression
+            nbar, regression_coefficients, fc_coefficients, clip_after_regression=clip_after_regression
         )
 
 
