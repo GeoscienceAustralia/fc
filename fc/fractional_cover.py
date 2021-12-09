@@ -25,12 +25,22 @@ try:
 except ImportError:
     raise Exception('ERROR: Fortran unmixing cannot be loaded.')
 
-DEFAULT_MEASUREMENTS = [{
-    'name': 'PV',
-    'dtype': 'int8',
-    'nodata': -1,
-    'units': 'percent'
-}]
+DEFAULT_MEASUREMENTS = [
+    Measurement(name='PV', dtype='int8', nodata=-1, units='percent'),
+    Measurement(name='NPV', dtype='int8', nodata=-1, units='percent'),
+    Measurement(name='BS', dtype='int8', nodata=-1, units='percent'),
+    Measurement(name='UE', dtype='int8', nodata=-1, units='1'),
+]
+
+# From table 2 in http://www.mdpi.com/2072-4292/6/9/7952/htm, scaled to 0-10,000 instead of 0-1
+LANDSAT_8_COEFFICIENTS = {
+    "blue": [4.1, 0.97470],
+    "green": [28.9, 0.99779],
+    "red": [27.4, 1.00446],
+    "nir": [0.4, 0.98906],
+    "swir1": [25.6, 0.99467],
+    "swir2": [-32.7, 1.02551]
+}
 
 
 def fractional_cover(nbar_tile: xarray.Dataset,

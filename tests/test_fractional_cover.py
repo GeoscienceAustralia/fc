@@ -5,30 +5,26 @@ import datetime
 import os
 from pathlib import Path
 
-import xarray as xr
-
 import datacube.utils.geometry
-from datacube.model import Measurement
-from fc.fc_app import tif_filenames, all_files_exist, _get_filename
-from fc.fractional_cover import fractional_cover
+import numpy as np
+import xarray as xr
+from fc.fc_app import _get_filename, all_files_exist, tif_filenames
+from fc.fractional_cover import (DEFAULT_MEASUREMENTS, LANDSAT_8_COEFFICIENTS,
+                                 apply_coefficients_for_band, fractional_cover)
+
+
+def test_coefficients():
+    data = np.zeros((10, 10))
+    data_tweaked = apply_coefficients_for_band(data, 'swir2', LANDSAT_8_COEFFICIENTS)
+    assert np.all(np.greater_equal(data_tweaked, 0))
 
 
 def test_fractional_cover(sr_filepath, fc_filepath):
-    # print(sr_filepath)
-    # print(fc_filepath)
-
     sr_dataset = open_dataset(sr_filepath)
 
-    measurements = [
-        Measurement(name='PV', dtype='int8', nodata=-1, units='percent'),
-        Measurement(name='NPV', dtype='int8', nodata=-1, units='percent'),
-        Measurement(name='BS', dtype='int8', nodata=-1, units='percent'),
-        Measurement(name='UE', dtype='int8', nodata=-1, units='1'),
-    ]
+    fc_dataset = fractional_cover(sr_dataset, DEFAULT_MEASUREMENTS)
 
-    fc_dataset = fractional_cover(sr_dataset, measurements)
-
-    assert set(fc_dataset.data_vars.keys()) == {m['name'] for m in measurements}
+    assert set(fc_dataset.data_vars.keys()) == {m['name'] for m in DEFAULT_MEASUREMENTS}
 
     validation_ds = open_dataset(fc_filepath)
 
@@ -38,19 +34,9 @@ def test_fractional_cover(sr_filepath, fc_filepath):
 
 
 def test_fractional_cover_lazy(sr_filepath, fc_filepath):
-    print(sr_filepath)
-    print(fc_filepath)
-
     sr_dataset = open_dataset(sr_filepath, chunks={'x': 50, 'y': 50})
 
-    measurements = [
-        Measurement(name='PV', dtype='int8', nodata=-1, units='percent'),
-        Measurement(name='NPV', dtype='int8', nodata=-1, units='percent'),
-        Measurement(name='BS', dtype='int8', nodata=-1, units='percent'),
-        Measurement(name='UE', dtype='int8', nodata=-1, units='1'),
-    ]
-
-    fc_dataset = fractional_cover(sr_dataset, measurements)
+    fc_dataset = fractional_cover(sr_dataset, DEFAULT_MEASUREMENTS)
 
     assert fc_dataset.PV.data.dask
     assert fc_dataset.NPV.data.dask
@@ -59,7 +45,7 @@ def test_fractional_cover_lazy(sr_filepath, fc_filepath):
 
     fc_dataset.load()
 
-    assert set(fc_dataset.data_vars.keys()) == {m['name'] for m in measurements}
+    assert set(fc_dataset.data_vars.keys()) == {m['name'] for m in DEFAULT_MEASUREMENTS}
 
     validation_ds = open_dataset(fc_filepath)
 
