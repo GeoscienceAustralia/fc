@@ -186,6 +186,9 @@ def apply_coefficients_for_band(numpyarray, band, regression_coefficients):
     coefficient0 = band_coefficients[0]  # noqa: F841
     coefficient1 = band_coefficients[1]  # noqa: F841
     numpyarray = numexpr.evaluate('coefficient0 + (coefficient1 * numpyarray)')
+    # Ensure that coeffiecient application doesn't result in negative values
+    # Values here should still be between 0 and 10,000
+    numpy.clip(numpyarray, a_min=0, a_max=10000, out=numpyarray)
     return numpyarray
 
 
