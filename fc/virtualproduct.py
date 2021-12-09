@@ -47,8 +47,9 @@ class FractionalCover(Transformation):
         self.c2_scaling = c2_scaling
         self.test_mode = test_mode
 
-    def measurements(self, input_measurements):
-        return {m['name']: Measurement(**m) for m in FC_MEASUREMENTS}
+    @property
+    def measurements(self):
+        return [Measurement(**m) for m in FC_MEASUREMENTS]
 
     def compute(self, data):
         if self.test_mode:
@@ -59,9 +60,9 @@ class FractionalCover(Transformation):
             data = scale_usgs_collection2(data)
 
         fc = []
-        measurements = [Measurement(**m) for m in FC_MEASUREMENTS]
+
         for time_idx in range(len(data.time)):
-            fc.append(fractional_cover(data.isel(time=time_idx), measurements, self.regression_coefficients))
+            fc.append(fractional_cover(data.isel(time=time_idx), self.measurements, self.regression_coefficients))
         fc = xr.concat(fc, dim='time')
         fc.attrs['crs'] = data.attrs['crs']
         try:
