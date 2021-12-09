@@ -104,23 +104,30 @@ def scale_usgs_collection2(data):
     return data.apply(scale_and_clip_dataarray, keep_attrs=True,
                       scale_factor=0.275, add_offset=-2000, clip_range=(0, 10000))
 
-def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_offset=0, clip_range=None,
-                             new_nodata=-999, new_dtype='int16'):
+
+def scale_and_clip_dataarray(
+    dataarray: xr.DataArray,
+    scale_factor=1,
+    add_offset=0,
+    clip_range=None,
+    new_nodata=-999,
+    new_dtype="int16",
+):
     orig_attrs = dataarray.attrs
-    nodata = dataarray.attrs['nodata']
+    nodata = dataarray.attrs["nodata"]
 
     mask = dataarray.data == nodata
 
     dataarray = dataarray * scale_factor + add_offset
 
     if clip_range is not None:
-        clip_min, clip_max = clip_range
-        dataarray.clip(clip_min, clip_max)
+        dataarray = dataarray.clip(*clip_range)
 
     dataarray = dataarray.astype(new_dtype)
 
     dataarray.data[mask] = new_nodata
+
     dataarray.attrs = orig_attrs
-    dataarray.attrs['nodata'] = new_nodata
+    dataarray.attrs["nodata"] = new_nodata
 
     return dataarray
