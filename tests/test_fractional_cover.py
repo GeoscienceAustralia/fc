@@ -10,12 +10,12 @@ import numpy as np
 import xarray as xr
 from fc.fc_app import _get_filename, all_files_exist, tif_filenames
 from fc.fractional_cover import (DEFAULT_MEASUREMENTS, LANDSAT_8_COEFFICIENTS,
-                                 apply_coefficients_for_band, fractional_cover)
+                                 _apply_coefficients_for_band, fractional_cover)
 
 
 def test_coefficients():
     data = np.zeros((10, 10))
-    data_tweaked = apply_coefficients_for_band(data, 'swir2', LANDSAT_8_COEFFICIENTS)
+    data_tweaked = _apply_coefficients_for_band(data, 'swir2', LANDSAT_8_COEFFICIENTS, clip_after_regression=True)
     assert np.all(np.greater_equal(data_tweaked, 0))
 
 
