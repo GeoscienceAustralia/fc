@@ -200,9 +200,9 @@ def _compute_fractions(nbar, regression_coefficients, fc_coefficients, clip_afte
     
     # apply fix on ls8 results
     if fc_coefficients is not None:
-        green = apply_coefficients_for_band(green, 'pv', fc_coefficients)
-        dead = apply_coefficients_for_band(dead, 'npv', fc_coefficients)
-        bare = apply_coefficients_for_band(bare, 'bs', fc_coefficients)
+        green = _apply_coefficients_for_band(green, 'pv', fc_coefficients)
+        dead = _apply_coefficients_for_band(dead, 'npv', fc_coefficients)
+        bare = _apply_coefficients_for_band(bare, 'bs', fc_coefficients)
     
     # clip the range to (0, 100)
     numpy.clip(green, a_min=0, a_max=127, out=green)
