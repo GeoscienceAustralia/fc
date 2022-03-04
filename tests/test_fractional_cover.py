@@ -11,6 +11,23 @@ import xarray as xr
 from fc.fc_app import _get_filename, all_files_exist, tif_filenames
 from fc.fractional_cover import (DEFAULT_MEASUREMENTS, LANDSAT_8_COEFFICIENTS,
                                  _apply_coefficients_for_band, fractional_cover)
+from fc.virtualproduct import FC_MEASUREMENTS, FractionalCover
+
+
+def test_virtual_product_interface(sr_filepath, fc_filepath):
+    fc_vp = FractionalCover()
+    sr_dataset = open_dataset(sr_filepath)
+    fake_time = np.array([np.datetime64("2010-01-01")])
+    sr_dataset = sr_dataset.expand_dims({'time': fake_time})
+    fc_dataset = fc_vp.compute(sr_dataset)
+
+    assert set(fc_dataset.data_vars.keys()) == {m['name'] for m in FC_MEASUREMENTS}
+
+    validation_ds = open_dataset(fc_filepath)
+    validation_ds = validation_ds.rename({name: name.lower() for name in validation_ds.data_vars})
+    fc_dataset = fc_dataset.squeeze(dim=['time'], drop=True)
+
+    assert validation_ds == fc_dataset
 
 
 def test_fc_with_regression(sr_filepath, fc_filepath):

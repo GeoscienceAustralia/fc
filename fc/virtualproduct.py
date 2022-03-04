@@ -52,7 +52,7 @@ class FractionalCover(Transformation):
                     data.isel(time=time_idx),
                     self.measurements,
                     self.regression_coefficients,
-                    self.output_regression_coefficients,
+                    output_regression_coefficients=self.output_regression_coefficients,
                     clip_after_regression=self.clip_after_regression
                 )
             )
