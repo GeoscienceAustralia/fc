@@ -209,7 +209,7 @@ def _compute_fractions(nbar, regression_coefficients, output_regression_coeffici
     numpy.clip(dead, a_min=0, a_max=127, out=dead)
     numpy.clip(bare, a_min=0, a_max=127, out=bare)
     numpy.clip(err, a_min=0, a_max=127, out=err)
-    
+
     output_data = numpy.array([green, dead, bare, err], dtype=numpy.int8)
     output_data[:, wh_unmix_err] = -1
 
