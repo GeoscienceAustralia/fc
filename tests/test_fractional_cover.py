@@ -14,15 +14,16 @@ from fc.fractional_cover import (DEFAULT_MEASUREMENTS, LANDSAT_8_COEFFICIENTS,
 
 
 def test_fc_with_regression(sr_filepath, fc_filepath):
-    fc_coefficients = {'pv': [2.77, 0.9481], 'bs': [2.45, 0.9499], 'npv': [-0.73, 0.9578]}
+    output_regression_coefficients = {'pv': [2.77, 0.9481], 'bs': [2.45, 0.9499], 'npv': [-0.73, 0.9578]}
     sr_dataset = open_dataset(sr_filepath)
-    fc_dataset = fractional_cover(sr_dataset, DEFAULT_MEASUREMENTS, fc_coefficients=fc_coefficients)
+    fc_dataset = fractional_cover(sr_dataset, DEFAULT_MEASUREMENTS,
+                                  output_regression_coefficients=output_regression_coefficients)
 
     validation_ds = open_dataset(fc_filepath)
     for var in validation_ds.data_vars:
         if var.lower() != "ue":
-            validation_ds[var].data = (validation_ds[var] * fc_coefficients[var.lower()][1]
-                                       + fc_coefficients[var.lower()][0]).clip(min=0).data
+            validation_ds[var].data = (validation_ds[var] * output_regression_coefficients[var.lower()][1]
+                                       + output_regression_coefficients[var.lower()][0]).clip(min=0).data
     assert validation_ds == fc_dataset
 
 

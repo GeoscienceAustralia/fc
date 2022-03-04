@@ -21,13 +21,13 @@ class FractionalCover(Transformation):
     def __init__(
         self,
         regression_coefficients=None,
-        fc_coefficients=None,
+        output_regression_coefficients=None,
         c2_scaling=False,
         test_mode=False,
         clip_after_regression=False,
     ):
         self.regression_coefficients = regression_coefficients
-        self.fc_coefficients = fc_coefficients
+        self.output_regression_coefficients = output_regression_coefficients
         self.c2_scaling = c2_scaling
         self.test_mode = test_mode
         self.clip_after_regression = clip_after_regression
@@ -52,7 +52,7 @@ class FractionalCover(Transformation):
                     data.isel(time=time_idx),
                     self.measurements,
                     self.regression_coefficients,
-                    self.fc_coefficients,
+                    self.output_regression_coefficients,
                     clip_after_regression=self.clip_after_regression
                 )
             )
@@ -72,7 +72,7 @@ class FractionalCover(Transformation):
                 "repo_url": "https://github.com/GeoscienceAustralia/fc.git",
                 "parameters": {
                     "regression_coefficients": self.regression_coefficients,
-                    'fc_coefficients': self.fc_coefficients,
+                    'output_regression_coefficients': self.output_regression_coefficients,
                     "usgs_c2_scaling": self.c2_scaling,
                 },
             }

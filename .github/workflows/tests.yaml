@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ 3.6, 3.8, 3.9 ]
+        python-version: [ 3.8, 3.9 ]
     name: Python ${{ matrix.python-version }}
     defaults:
       run:
@@ -39,7 +39,7 @@ jobs:
       - name: Install conda dependencies
         run: |
           mamba install datacube gdal pycodestyle pylint pytest-cov pytest numexpr lxml pydash python-rapidjson \
-          lxml pydash python-rapidjson ruamel.yaml structlog ciso8601 cattrs boltons dawg platformdirs=2.4.0
+          lxml pydash python-rapidjson ruamel.yaml structlog ciso8601 cattrs boltons dawg
           # gdal is required by digitalearthau??
       - name: Install pip deps
         run: |
