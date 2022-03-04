@@ -48,7 +48,7 @@ def fractional_cover(
     measurements: Sequence[Measurement] = None,
     regression_coefficients: Mapping[str, Sequence[int]] = None,
     clip_after_regression: bool = False,
-) -> xarray.Dataset:
+    output_regression_coefficients: Mapping[str, Sequence[int]] = None) -> xarray.Dataset:
     """
     Given a tile of spectral observations compute the fractional components.
     The data should be a 2D array
@@ -72,6 +72,10 @@ def fractional_cover(
     :param regression_coefficients:
         A dictionary with six pairs of coefficients to apply to the green, red, nir, swir1 and swir2 values
         (blue is not used)
+    
+    :param output_regression_coefficients:
+        A dictionary with 3 pairs of regression coeficients (intercept, scale) to apply to the bs, pv and npv
+        of ls8 after unmixing
 
     :return:
         An xarray.Dataset containing:
@@ -97,7 +101,7 @@ def fractional_cover(
     nbar = nbar.where(is_valid_array, no_data)
 
     output_data = compute_fractions(
-        nbar.data, regression_coefficients, clip_after_regression=clip_after_regression
+        nbar.data, regression_coefficients, output_regression_coefficients, clip_after_regression=clip_after_regression
     )
     error_val = -1
     where = (
@@ -123,7 +127,7 @@ def fractional_cover(
 
 
 #: pylint: disable=too-many-locals
-def compute_fractions(nbar, regression_coefficients, clip_after_regression=False):
+def compute_fractions(nbar, regression_coefficients, output_regression_coefficients, clip_after_regression=False):
     """
     Compute the fractional cover of the given imagery tile
 
@@ -134,6 +138,7 @@ def compute_fractions(nbar, regression_coefficients, clip_after_regression=False
         compute_fractions_with_regs = partial(
             _compute_fractions,
             regression_coefficients=regression_coefficients,
+            output_regression_coefficients=output_regression_coefficients,
             clip_after_regression=clip_after_regression,
         )
         # The _compute_fractions func will change the band (first) dim from 5 to 4
@@ -149,12 +154,12 @@ def compute_fractions(nbar, regression_coefficients, clip_after_regression=False
         return out
     else:
         return _compute_fractions(
-            nbar, regression_coefficients, clip_after_regression=clip_after_regression
+            nbar, regression_coefficients, output_regression_coefficients, clip_after_regression=clip_after_regression
         )
 
 
 #: pylint: disable=too-many-locals
-def _compute_fractions(nbar, regression_coefficients, clip_after_regression=False):
+def _compute_fractions(nbar, regression_coefficients, output_regression_coefficients, clip_after_regression=False):
     temp_arr = _make_temp_array(nbar)
 
     sum_to_one_weight = endmembers.sum_weight()
@@ -186,17 +191,23 @@ def _compute_fractions(nbar, regression_coefficients, clip_after_regression=Fals
         "(green == -10) |" "(dead1 == -10) |" "(dead2 == -10) |" "(bare == -10)"
     )
 
-    # scale the results and clip the range to (0, 100)
+
+    # scale the results
     green = numexpr.evaluate("green / 0.01")
-    numpy.clip(green, a_min=0, a_max=127, out=green)
-
     dead = numexpr.evaluate("(dead1 + dead2) / 0.01")
-    numpy.clip(dead, a_min=0, a_max=127, out=dead)
-
     bare = numexpr.evaluate("bare / 0.01")
-    numpy.clip(bare, a_min=0, a_max=127, out=bare)
-
     err = numexpr.evaluate("err")
+    
+    # apply fix on ls8 results
+    if output_regression_coefficients is not None:
+        green = _apply_coefficients_for_band(green, 'pv', output_regression_coefficients)
+        dead = _apply_coefficients_for_band(dead, 'npv', output_regression_coefficients)
+        bare = _apply_coefficients_for_band(bare, 'bs', output_regression_coefficients)
+    
+    # clip the range to (0, 127)
+    numpy.clip(green, a_min=0, a_max=127, out=green)
+    numpy.clip(dead, a_min=0, a_max=127, out=dead)
+    numpy.clip(bare, a_min=0, a_max=127, out=bare)
     numpy.clip(err, a_min=0, a_max=127, out=err)
 
     output_data = numpy.array([green, dead, bare, err], dtype=numpy.int8)

@@ -13,6 +13,20 @@ from fc.fractional_cover import (DEFAULT_MEASUREMENTS, LANDSAT_8_COEFFICIENTS,
                                  _apply_coefficients_for_band, fractional_cover)
 
 
+def test_fc_with_regression(sr_filepath, fc_filepath):
+    output_regression_coefficients = {'pv': [2.77, 0.9481], 'bs': [2.45, 0.9499], 'npv': [-0.73, 0.9578]}
+    sr_dataset = open_dataset(sr_filepath)
+    fc_dataset = fractional_cover(sr_dataset, DEFAULT_MEASUREMENTS,
+                                  output_regression_coefficients=output_regression_coefficients)
+
+    validation_ds = open_dataset(fc_filepath)
+    for var in validation_ds.data_vars:
+        if var.lower() != "ue":
+            validation_ds[var].data = (validation_ds[var] * output_regression_coefficients[var.lower()][1]
+                                       + output_regression_coefficients[var.lower()][0]).clip(min=0).data
+    assert validation_ds == fc_dataset
+
+
 def test_coefficients():
     data = np.zeros((10, 10))
     data_tweaked = _apply_coefficients_for_band(data, 'swir2', LANDSAT_8_COEFFICIENTS, clip_after_regression=True)

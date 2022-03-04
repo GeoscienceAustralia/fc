@@ -41,7 +41,7 @@ setup(
     data_files=[
         ('fc/config/', config_files)],
     classifiers=[
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.8',
     ],
     install_requires=[
         'numpy',
