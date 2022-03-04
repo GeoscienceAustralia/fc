@@ -17,6 +17,7 @@ def test_fc_with_regression(sr_filepath, fc_filepath):
     fc_coefficients = {'pv': [2.77, 0.9481], 'bs': [2.45, 0.9499], 'npv': [-0.73, 0.9578]}
     sr_dataset = open_dataset(sr_filepath)
     fc_dataset = fractional_cover(sr_dataset, DEFAULT_MEASUREMENTS, fc_coefficients=fc_coefficients)
+
     validation_ds = open_dataset(fc_filepath)
     for var in validation_ds.data_vars:
         if var.lower() != "ue":

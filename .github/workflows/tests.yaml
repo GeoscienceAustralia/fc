@@ -50,7 +50,7 @@ jobs:
       - name: Install from local dir
         # Don't install the wheel, getting code coverage from tests is nigh on impossible
         run: |
-          python setup.py develop
+          python setup.py develop --no-deps
       - name: Check code
         run: |
           pip freeze
