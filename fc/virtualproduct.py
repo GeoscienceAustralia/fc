@@ -96,13 +96,16 @@ class FakeFractionalCover(FractionalCover):
 
 
 def scale_usgs_collection2(data):
-    return data.apply(
+    attrs = data.attrs
+    data =  data.apply(
         scale_and_clip_dataarray,
-        keep_attrs=True,
+        keep_attrs=False,
         scale_factor=0.275,
         add_offset=-2000,
         clip_range=(0, 10000),
     )
+    data.attrs = attrs
+    return data
 
 
 def scale_and_clip_dataarray(

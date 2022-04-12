@@ -93,9 +93,14 @@ def fractional_cover(
     # Ensure the bands are all there and in the right order
     nbar_tile = nbar_tile[["green", "red", "nir", "swir1", "swir2"]]
 
+    # Check for nodata
+    for var in nbar_tile.data_vars:
+        if nbar_tile[var].attrs.get('nodata') is None:
+            raise ValueError("Band %s has no valid nodata", var)
+
     # Set nodata to 0
-    no_data = 0
     is_valid_array = valid_data_mask(nbar_tile).to_array(dim="band").all(dim="band")
+    no_data = 0
 
     nbar = nbar_tile.to_array(dim="band")
     nbar = nbar.where(is_valid_array, no_data)
