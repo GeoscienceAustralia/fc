@@ -27,8 +27,9 @@ unmix_ext.optional = True  # For platforms without FORTRAN, we will fall back to
 
 config_files = ['config/' + name for name in os.listdir('config')]
 setup(
-    name='fc',
+    name='fractional-cover',
     description='Geoscience Australia - Fractional Cover for Digital Earth Australia',
+    long_description_content_type='text/x-rst',
     long_description=open('README.rst', 'r').read(),
     license='Apache License 2.0',
     url='https://github.com/GeoscienceAustralia/fc',

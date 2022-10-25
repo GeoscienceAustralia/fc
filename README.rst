@@ -152,8 +152,8 @@ Specify a template string used to name the output files. Uses the python ``forma
 tile_index[0]    X Tile Index
 tile_index[1]    Y Tile Index
 region code      The region code of the input dataset
-epoch_start      Start date of the epoch, format using `strftime syntax`_
-epoch_end        End date of the epoch, format using `strftime syntax`_
+epoch_start      Start date of the epoch, format using `strftime` syntax
+epoch_end        End date of the epoch, format using `strftime` syntax
 version          Task timestamp
 start_time       Start time in `%Y%m%d%H%M%S%f` format
 end_time         End time in `%Y%m%d%H%M%S%f` format
