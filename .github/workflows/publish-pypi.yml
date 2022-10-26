@@ -23,7 +23,19 @@ jobs:
           python -m pip install --upgrade twine
           python -m pip freeze
 
+      - name: Install wheel dependencies
+        run: |
+          sudo apt-get install gfortran
+          python -m pip install auditwheel
+
+      - name: Build manylinux wheel
+        run: |
+          python setup.py sdist bdist_wheel
+          auditwheel repair dist/*linux_x86_64.whl --plat manylinux_2_27_x86_64 --wheel-dir dist/
+          rm dist/*linux_x86_64.whl
+
       - name: Upload to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
+          skip_existing: true
