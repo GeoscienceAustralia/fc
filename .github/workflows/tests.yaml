@@ -11,13 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ 3.8, 3.9 ]
+        python-version: [ 3.8, 3.9, '3.10' ]
     name: Python ${{ matrix.python-version }}
     defaults:
       run:
         shell: bash -l {0}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Setup environment
@@ -39,11 +39,7 @@ jobs:
       - name: Install conda dependencies
         run: |
           mamba install datacube gdal pycodestyle pylint pytest-cov pytest numexpr lxml pydash python-rapidjson \
-          lxml pydash python-rapidjson ruamel.yaml structlog ciso8601 cattrs boltons dawg
-          # gdal is required by digitalearthau??
-      - name: Install pip deps
-        run: |
-          pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets3 digitalearthau
+          lxml pydash python-rapidjson ruamel.yaml structlog ciso8601 cattrs boltons
       - name: Build package
         run: |
           python setup.py sdist bdist_wheel
@@ -59,12 +55,12 @@ jobs:
           ls -la
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: packages
           path: dist
 
-      - uses: codecov/codecov-action@v2
+      - uses: codecov/codecov-action@v3
         with:
           env_vars: OS,PYTHON
           files: ./coverage.xml
@@ -76,7 +72,7 @@ jobs:
     needs: test
     steps:
       - name: Download a single artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: packages
           path: dist
