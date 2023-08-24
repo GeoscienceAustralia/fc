@@ -8,7 +8,6 @@ from pathlib import Path
 import datacube.utils.geometry
 import numpy as np
 import xarray as xr
-from fc.fc_app import _get_filename, all_files_exist, tif_filenames
 from fc.fractional_cover import (DEFAULT_MEASUREMENTS, LANDSAT_8_COEFFICIENTS,
                                  _apply_coefficients_for_band, fractional_cover)
 from fc.virtualproduct import FC_MEASUREMENTS, FractionalCover
@@ -89,90 +88,3 @@ def open_dataset(file_path, **kwargs):
     ds = xr.open_dataset(file_path, mask_and_scale=False, drop_variables='crs', **kwargs)
     ds.attrs['crs'] = datacube.utils.geometry.CRS('EPSG:32754')
     return ds
-
-
-def test_filename2tif_names():
-    bands = ['BS', 'PV']
-    base = 'yeah'
-    ext = '.tif'
-    filename = base + ext
-    abs_paths, rel_files, yml = tif_filenames(filename, bands)
-    key = 'BS'
-    assert abs_paths[key] == Path(base + '_' + key + ext).absolute().as_uri()
-    assert rel_files[key] == str(base + '_' + key + ext)
-    assert yml == Path(base + '.yml').absolute()
-
-
-def test_all_files_exist():
-    current = os.path.realpath(__file__)
-    filenames = [current, 'this_isnt_.here']
-    assert not all_files_exist(filenames)
-    filenames = [current, current]
-    assert all_files_exist(filenames)
-
-    filenames_dict = {'a': current, 'c': current, 'b': 'this_isnt_.here'}
-    assert not all_files_exist(filenames_dict.values())
-    filenames_dict = {'a': current, 'b': current}
-    assert all_files_exist(filenames_dict.values())
-
-
-def test_get_filename():
-    class Fake(object):
-        pass
-
-    source = Fake()
-    source.metadata = Fake()
-    source.metadata.region_code = '097045'
-    source.time = Fake()
-    source.time.values = (datetime.date(2019, 4, 13), datetime.date(2019, 4, 14))
-    template = 'LS8_OLI_FC/{region_code}_{start_time}_v{version}.nc'
-    config = {'root_dir_in_new_location': 'LS8_OLI_NBART',
-              'task_timestamp': 'the_timestamp',
-              'location': Path('/can/this/be/made/up'),
-              'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
-
-    result = _get_filename(config, source)
-    actual = '/can/this/be/made/up/LS8_OLI_FC/097045_20190413000000000000_vthe_timestamp.nc'
-    assert result == actual
-
-
-def test_get_filename3():
-    class Fake(object):
-        pass
-
-    source = Fake()
-    source.time = Fake()
-    source.time.values = (datetime.date(2019, 4, 13), datetime.date(2019, 4, 14))
-    source.metadata = None
-    source.local_uri = 'file///w-43/LS8_OLI_NBART_3577_15_-43_20190412234447000000_v1556301492.nc'
-    template = '_{tile_index[0]}_{tile_index[1]}_'
-    tile_index_regex = '^(.+)/LS8_OLI_NBART_[0-9]*_(?P<tile_index0>-?[0-9]*)_(?P<tile_index1>-?[0-9]*)_[_v0-9]*.*$'
-    config = {'source_directory': 'LS8_OLI_NBART',
-              'task_timestamp': 'the_timestamp',
-              'location': Path('/can/this/be/made/up'),
-              'file_path_template': template,
-              'tile_index_regex': tile_index_regex}
-    result = _get_filename(config, source)
-    actual = '/can/this/be/made/up/_15_-43_'
-    assert result == actual
-
-
-def test_get_filename4():
-    class Fake(object):
-        pass
-
-    source = Fake()
-    source.metadata = Fake()
-    source.metadata.region_code = '097045'
-    source.time = Fake()
-    source.time.values = (datetime.date(2019, 4, 13), datetime.date(2019, 5, 14))
-    template = 'LS8_OLI_FC/{region_code}_{start_time}_v{version}.nc'
-    template = '{epoch_start:%Y-%m-%d}_{epoch_end:%m}.nc'
-    config = {'root_dir_in_new_location': 'LS8_OLI_NBART',
-              'task_timestamp': 'the_timestamp',
-              'location': Path('/can/this/be/made/up'),
-              'file_path_template': template}  # root_dir_in_new_location: 'LS8_OLI_NBART'
-
-    result = _get_filename(config, source)
-    actual = '/can/this/be/made/up/2019-04-13_05.nc'
-    assert result == actual
