@@ -28,8 +28,8 @@ from pandas import to_datetime
 
 from datacube import Datacube
 from datacube.drivers.netcdf import write_dataset_to_netcdf
-from datacube.helpers import write_geotiff
-from datacube.index._api import Index
+from datacube.utils.cog import write_cog
+from datacube.index import Index
 from datacube.model import DatasetType, Dataset
 from datacube.model.utils import make_dataset, xr_apply, datasets_to_doc
 from datacube.testutils import io
@@ -39,8 +39,6 @@ from datacube.ui.task_app import pickle_stream
 from datacube.utils import geometry
 from datacube.utils import unsqueeze_dataset
 from digitalearthau import paths
-from digitalearthau.qsub import with_qsub_runner, TaskRunner
-from digitalearthau.runners.model import TaskDescription
 from fc import __version__
 from fc.fractional_cover import fractional_cover
 
@@ -497,61 +495,6 @@ def generate(index: Index,
     _LOG.info('Found %d tasks', num_tasks_saved)
 
 
-@cli.command(help='Process generated task file')
-@click.option('--dry-run', is_flag=True, default=False)
-@click.option('--input-filename', required=True,
-              help='A Tasks File to process',
-              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
-@click.option('--skip-indexing', is_flag=True, default=False,
-              help="Generate output files but don't record to a database index")
-@with_qsub_runner()
-@ui.verbose_option
-@ui.pass_index(app_name=APP_NAME)
-def run(index,
-        dry_run: bool,
-        input_filename: str,
-        runner: TaskRunner,
-        skip_indexing: bool,
-        **kwargs):
-    config, tasks = task_app.load_tasks(input_filename)
-    work_dir = Path(input_filename).parent
-
-    # TODO: Get rid of this completely
-    task_desc = TaskDescription(
-        type_='fc',
-        task_dt=datetime.utcnow().astimezone(timezone.utc),
-        events_path=work_dir,
-        logs_path=work_dir,
-        jobs_path=work_dir,
-        parameters=None,
-        runtime_state=None,
-    )
-
-    if dry_run:
-        _LOG.info('Starting Fractional Cover Dry Run...')
-        task_app.check_existing_files((task['filename_dataset'] for task in tasks))
-        return 0
-
-    _LOG.info('Starting Fractional Cover processing...')
-    task_func = partial(_do_fc_task, config)
-
-    if skip_indexing:
-        process_func = _skip_indexing_and_only_log
-    else:
-        process_func = partial(_index_datasets, index)
-
-    try:
-        runner(task_desc, tasks, task_func, process_func)
-        _LOG.info("Runner finished normally, triggering shutdown.")
-    except Exception as err:
-        if "Error 104" in err:
-            _LOG.info("Processing completed and shutdown was initiated. Exception: %s", str(err))
-        else:
-            _LOG.info("Exception during processing: %s", err)
-    finally:
-        runner.stop()
-    return 0
-
 
 def all_files_exist(filenames: Iterable):
     """
@@ -625,7 +568,7 @@ def dataset_to_geotif_yaml(dataset: xarray.Dataset,
         del attrs['crs']  # It's  format is poor
         del attrs['units']  # It's  format is poor
         slim_dataset[key] = dataset.data_vars[key].astype('int16', copy=True)
-        write_geotiff(bandfile, slim_dataset.isel(time=0), profile_override=attrs)
+        write_cog(bandfile, slim_dataset.isel(time=0), profile_override=attrs)
 
 
 if __name__ == "__main__":
