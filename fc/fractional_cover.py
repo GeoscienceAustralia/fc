@@ -446,7 +446,7 @@ def _make_temp_array(nbar):
     geo_shape = nbar.shape[1:]
     temp_vars = ["green", "dead1", "dead2", "bare", "err"]
     temp_shape = (len(temp_vars),) + geo_shape
-    return numpy.empty(temp_shape, dtype=numpy.float)
+    return numpy.empty(temp_shape, dtype=numpy.float64)
 
 
 def _apply_coefficients_for_band(
