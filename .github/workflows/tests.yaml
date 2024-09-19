@@ -75,11 +75,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - name: Download a single artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
 
         with:
-          name: packages-${{ matrix.python-version }}
+          name: packages-3.9
+          path: dist
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: packages-3.10
           path: dist
 
       - name: Display directory structure of downloaded files
