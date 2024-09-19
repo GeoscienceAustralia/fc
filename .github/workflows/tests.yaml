@@ -61,7 +61,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages
+          name: packages-${{ matrix.python-version }}
           path: dist
 
       - uses: codecov/codecov-action@v2
@@ -78,7 +78,7 @@ jobs:
       - name: Download a single artifact
         uses: actions/download-artifact@v4
         with:
-          name: packages
+          name: packages-${{ matrix.python-version }}
           path: dist
 
       - name: Display directory structure of downloaded files
