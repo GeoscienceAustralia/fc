@@ -17,7 +17,7 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Setup environment
@@ -43,10 +43,10 @@ jobs:
           # gdal is required by digitalearthau??
       - name: Install pip deps
         run: |
-          pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets3 digitalearthau
+          pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets3
       - name: Build package
         run: |
-          python setup.py sdist bdist_wheel
+          python -m build -n
       - name: Install from local dir
         # Don't install the wheel, getting code coverage from tests is nigh on impossible
         run: |
