@@ -46,7 +46,7 @@ jobs:
           pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets3
       - name: Build package
         run: |
-          python -m build -n
+          python -m build
       - name: Install from local dir
         # Don't install the wheel, getting code coverage from tests is nigh on impossible
         run: |
