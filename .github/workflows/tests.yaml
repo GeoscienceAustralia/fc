@@ -59,11 +59,12 @@ jobs:
           name: packages-${{ matrix.python-version }}
           path: dist
 
-      - uses: codecov/codecov-action@v2
+      - uses: codecov/codecov-action@v4
         with:
           env_vars: OS,PYTHON
-          files: ./coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          verbose: false
 
   deploy-packages:
     if: startsWith(github.ref, 'refs/tags/')
