@@ -1,13 +1,7 @@
 """
 Entry point for producing Fractional Cover products.
 
-Specifically intended for running in the PBS job queue system at the NCI.
-
-Following cli commands are supported:
 1. datacube-fc list
-2. datacube-fc ensure-products
-4. datacube-fc generate
-5. datacube-fc run
 """
 
 import itertools
@@ -442,10 +436,6 @@ def cli():
     Instantiate a click 'Datacube fractional cover' group object to register the following sub-commands for
     different bits of FC processing:
          1) list
-         2) ensure-products
-         3) submit
-         4) generate
-         5) run
     :return: None
     """
     pass
