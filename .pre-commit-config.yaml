@@ -1,17 +1,43 @@
+ci:
+  skip: [pylint]
+
 repos:
-    - repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v2.4.0
-      hooks:
-        - id: flake8
-        - id: end-of-file-fixer
-        - id: check-docstring-first
-        - id: check-json
-        - id: check-yaml
-        - id: debug-statements
-        - id: requirements-txt-fixer
-        - id: check-added-large-files
-        - id: check-merge-conflict
-    -   repo: https://github.com/PyCQA/pylint
-        rev: "2.6"  # Use the sha / tag you want to point at
-        hooks:
-        -   id: pylint
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: ['-c', '.yamllint']
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: check-docstring-first
+      - id: check-json
+      - id: check-yaml
+      - id: debug-statements
+      - id: name-tests-test
+        args: ['--django']
+      - id: requirements-txt-fixer
+      - id: check-added-large-files
+      - id: check-merge-conflict
+  - repo: https://github.com/PyCQA/flake8
+    rev: '7.1.1'
+    hooks:
+      - id: flake8
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+  - repo: local
+    hooks:
+    - id: pylint
+      name: pylint
+      entry: pylint
+      language: system
+      types: [python]
+      args:
+        [
+          "-rn", # Only display messages
+          "-sn", # Don't display the score
+          "--rcfile=pylintrc", # Link to your config file
+        ]

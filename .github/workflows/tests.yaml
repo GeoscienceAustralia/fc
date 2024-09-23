@@ -11,17 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ 3.8, 3.9 ]
+        python-version: ["3.9", "3.10"]
     name: Python ${{ matrix.python-version }}
     defaults:
       run:
         shell: bash -l {0}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Setup environment
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
@@ -39,18 +39,13 @@ jobs:
       - name: Install conda dependencies
         run: |
           mamba install datacube gdal pycodestyle pylint pytest-cov pytest numexpr lxml pydash python-rapidjson \
-          lxml pydash python-rapidjson ruamel.yaml structlog ciso8601 cattrs boltons dawg
-          # gdal is required by digitalearthau??
-      - name: Install pip deps
-        run: |
-          pip install --extra-index-url=https://packages.dea.ga.gov.au/ eodatasets3 digitalearthau
+          lxml pydash python-rapidjson ruamel.yaml structlog ciso8601 cattrs boltons build eodatasets3
       - name: Build package
         run: |
-          python setup.py sdist bdist_wheel
+          python -m build
       - name: Install from local dir
-        # Don't install the wheel, getting code coverage from tests is nigh on impossible
         run: |
-          python setup.py develop --no-deps
+          pip install dist/*.whl
       - name: Check code
         run: |
           pip freeze
@@ -59,26 +54,34 @@ jobs:
           ls -la
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: packages
+          name: packages-${{ matrix.python-version }}
           path: dist
 
-      - uses: codecov/codecov-action@v2
+      - uses: codecov/codecov-action@v4
         with:
           env_vars: OS,PYTHON
-          files: ./coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          verbose: false
 
   deploy-packages:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - name: Download a single artifact
-        uses: actions/download-artifact@v4.1.7
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+
         with:
-          name: packages
+          name: packages-3.9
+          path: dist
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: packages-3.10
           path: dist
 
       - name: Display directory structure of downloaded files
