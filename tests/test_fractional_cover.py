@@ -88,6 +88,8 @@ def test_fractional_cover_lazy(sr_filepath, fc_filepath):
 def open_dataset(file_path, **kwargs):
     ds = xr.open_dataset(file_path, mask_and_scale=False, drop_variables='crs', **kwargs)
     ds.attrs['crs'] = datacube.utils.geometry.CRS('EPSG:32754')
+    if 'spatial_ref' in ds.coords:
+        del ds.coords['spatial_ref']
     return ds
 
 
