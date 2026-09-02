@@ -23,7 +23,6 @@ setup(
     data_files=[("fc/config/", config_files)],
     classifiers=[
         "Programming Language :: Python :: 3.10",
-        "License :: OSI Approved :: Apache Software License",
     ],
     install_requires=["numpy", "numexpr", "datacube", "click>=6.0", "pandas"],
     entry_points={
