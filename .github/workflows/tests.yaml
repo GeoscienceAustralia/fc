@@ -38,7 +38,8 @@ jobs:
           which python
       - name: Install conda dependencies
         run: |
-          mamba install datacube gdal pycodestyle pylint pytest-cov pytest numexpr lxml pydash python-rapidjson \
+          mamba install --override-channels -c conda-forge \
+          datacube gdal pycodestyle pylint pytest-cov pytest numexpr lxml pydash python-rapidjson \
           lxml pydash python-rapidjson ruamel.yaml structlog ciso8601 cattrs boltons build eodatasets3
       - name: Build package
         run: |
