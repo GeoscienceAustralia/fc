@@ -14,7 +14,7 @@ setup(
     description="Geoscience Australia - Fractional Cover for Digital Earth Australia",
     long_description_content_type="text/x-rst",
     long_description=open("README.rst", "r").read(),
-    license="Apache License 2.0",
+    license="Apache-2.0",
     url="https://github.com/GeoscienceAustralia/fc",
     maintainer="Geoscience Australia",
     maintainer_email="earth.observation@ga.gov.au",
@@ -23,6 +23,7 @@ setup(
     data_files=[("fc/config/", config_files)],
     classifiers=[
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.12",
     ],
     install_requires=["numpy", "numexpr", "datacube", "click>=6.0", "pandas"],
     entry_points={
