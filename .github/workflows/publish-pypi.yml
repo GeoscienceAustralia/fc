@@ -42,6 +42,7 @@ jobs:
 
       - name: Repair manylinux wheel
         run: |
+          auditwheel show dist/*.whl
           auditwheel repair dist/*linux_x86_64.whl \
             --plat manylinux_2_27_x86_64 \
             --wheel-dir dist/
