@@ -50,6 +50,7 @@ jobs:
       - name: Check code
         run: |
           pip freeze
+          python -c "import fc; print(fc.__file__)"
           python -c 'import fc.unmix'
           ./check-code.sh
           ls -la
