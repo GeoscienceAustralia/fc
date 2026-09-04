@@ -7,12 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish_testpypi:
-    if: github.repository == 'GeoscienceAustralia/fc'
-
-    runs-on: ubuntu-latest
-
-jobs:
   build_wheels:
     runs-on: ubuntu-latest
 
@@ -34,6 +28,7 @@ jobs:
           path: wheelhouse/*.whl
 
   publish:
+    if: github.repository == 'GeoscienceAustralia/fc'
     needs: build_wheels
     runs-on: ubuntu-latest
 
