@@ -23,6 +23,7 @@ setup(
     data_files=[("fc/config/", config_files)],
     classifiers=[
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.12",
     ],
     install_requires=["numpy", "numexpr", "datacube", "click>=6.0", "pandas"],
     entry_points={
