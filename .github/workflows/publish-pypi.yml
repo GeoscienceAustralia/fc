@@ -34,7 +34,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gfortran37
+          sudo apt-get install -y gfortran
 
       - name: Build source distribution and wheel
         run: |
