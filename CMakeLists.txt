@@ -1,9 +1,13 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.18)
 
 project(unmiximage LANGUAGES Fortran C)
 
 # Find Python 3 and its development headers
-find_package(Python3 COMPONENTS Development NumPy REQUIRED)
+find_package(
+    Python3 
+    COMPONENTS 
+    Development.Module
+    NumPy)
 
 # Define the source files (both Fortran and C)
 set(SOURCES
@@ -18,13 +22,20 @@ add_library(unmiximage MODULE ${SOURCES})
 
 set_target_properties(unmiximage PROPERTIES
     PREFIX ""
-    SUFFIX ".so"
+    OUTPUT_NAME "unmiximage"
 )
 
-# Link Python headers and libraries to the target
-target_include_directories(unmiximage PRIVATE ${Python3_INCLUDE_DIRS} ${Python3_NumPy_INCLUDE_DIRS})
-target_link_libraries(unmiximage PRIVATE ${Python3_LIBRARIES})
+# Python3::Module supplies the Python extension-module development settings.
+# Python3::NumPy supplies the NumPy include directory.
+target_link_libraries(
+    unmiximage
+    PRIVATE
+        Python3::Module
+        Python3::NumPy
+)
 
 # Install the shared object to the Python package directory
-install(TARGETS unmiximage
-        LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/fc/unmix)
+install(
+    TARGETS unmiximage
+    LIBRARY DESTINATION fc/unmix
+)
