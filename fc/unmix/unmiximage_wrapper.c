@@ -38,7 +38,7 @@ static PyObject* py_unmiximage(PyObject* self, PyObject* args) {
 
     // Ensure the image array is Fortran-contiguous (column-major)
     if (!PyArray_ISFARRAY(image_obj)) {
-        image_obj = (PyArrayObject*) PyArray_FromAny(image_obj,
+        image_obj = (PyArrayObject*) PyArray_FromAny((PyObject*) image_obj,
                                                      PyArray_DescrFromType(NPY_DOUBLE),
                                                      3, 3, NPY_ARRAY_F_CONTIGUOUS, NULL);
         if (image_obj == NULL) {
@@ -49,7 +49,7 @@ static PyObject* py_unmiximage(PyObject* self, PyObject* args) {
 
     // Ensure the endMemberMatrix array is Fortran-contiguous (column-major)
     if (!PyArray_ISFARRAY(endMemberMatrix_obj)) {
-        endMemberMatrix_obj = (PyArrayObject*) PyArray_FromAny(endMemberMatrix_obj,
+        endMemberMatrix_obj = (PyArrayObject*) PyArray_FromAny((PyObject*) endMemberMatrix_obj,
                                                                PyArray_DescrFromType(NPY_DOUBLE),
                                                                2, 2, NPY_ARRAY_F_CONTIGUOUS, NULL);
         if (endMemberMatrix_obj == NULL) {
