@@ -20,7 +20,10 @@ from boltons import fileutils
 from pandas import to_datetime
 
 from datacube import Datacube
-from datacube.drivers.netcdf import write_dataset_to_netcdf
+try:
+    from datacube.drivers.netcdf import write_dataset_to_netcdf
+except ImportError:
+    from datacube.drivers.netcdf._write import write_dataset_to_netcdf
 from datacube.utils.cog import write_cog
 from datacube.index import Index
 from datacube.model import DatasetType, Dataset
