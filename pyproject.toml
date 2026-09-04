@@ -1,6 +1,6 @@
 # pyproject.toml
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4", "numpy", "scikit-build", "cmake>=3.15"]
+requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4", "numpy", "scikit-build-core", "cmake>=3.15", "ninja"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
