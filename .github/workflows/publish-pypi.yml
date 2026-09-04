@@ -32,7 +32,7 @@ jobs:
     needs: build_wheels
     runs-on: ubuntu-latest
 
-    environment: testpypi
+    environment: pypi
 
     permissions:
       id-token: write
