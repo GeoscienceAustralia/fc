@@ -3,6 +3,8 @@ name: Publish to PyPI
 on:
   release:
     types: [published]
+  pull_request:
+  push:
 
 jobs:
   build_wheels:
@@ -17,7 +19,7 @@ jobs:
           CIBW_BUILD: "cp3{10,11,12,13}-manylinux_x86_64"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_BEFORE_ALL_LINUX: |
-            yum install -y gcc-gfortran
+            yum install -y gcc-gfortran python3-devel
           CIBW_TEST_SKIP: "*"
 
       - uses: actions/upload-artifact@v6
