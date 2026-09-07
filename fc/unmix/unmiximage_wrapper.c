@@ -37,10 +37,13 @@ static PyObject* py_unmiximage(PyObject* self, PyObject* args) {
     }
 
     // Ensure the image array is Fortran-contiguous (column-major)
+    int new_image_obj = 0;
     if (!PyArray_ISFARRAY(image_obj)) {
         image_obj = (PyArrayObject*) PyArray_FromAny(image_obj,
                                                      PyArray_DescrFromType(NPY_DOUBLE),
                                                      3, 3, NPY_ARRAY_F_CONTIGUOUS, NULL);
+        // track if image_obj was replaced, so we can clean up later
+        new_image_obj = 1;
         if (image_obj == NULL) {
             PyErr_SetString(PyExc_ValueError, "Failed to convert image to Fortran-contiguous.");
             return NULL;
@@ -97,15 +100,26 @@ static PyObject* py_unmiximage(PyObject* self, PyObject* args) {
     // Call the Fortran subroutine with the deduced dimensions and input/output arrays
     unmiximage_(image, endMemberMatrix, &numBands, &numEndMembers, &numRows, &numCols, &inNull, &outNull, fractionsImage);
 
+    // Remove our reference to image_obj
+    if (new_image_obj) {
+        Py_DECREF(image_obj);
+    }
+
     // Convert array to c-contiguous before return
     if (!PyArray_ISCARRAY(fractionsImage_obj)) {
-        fractionsImage_obj = (PyArrayObject*) PyArray_FromArray(fractionsImage_obj,
-                                                                  PyArray_DescrFromType(NPY_DOUBLE),
-                                                                  NPY_ARRAY_C_CONTIGUOUS);
-        if (!fractionsImage_obj) {
+        PyArrayObject* temp = (PyArrayObject*) PyArray_FromArray(
+            fractionsImage_obj,
+            PyArray_DescrFromType(NPY_DOUBLE),
+            NPY_ARRAY_C_CONTIGUOUS);
+
+        if (temp == NULL) {
             PyErr_SetString(PyExc_ValueError, "Failed to convert fractionsImage to C-contiguous.");
+            Py_DECREF(fractionsImage_obj);  // Clean up original
             return NULL;
         }
+
+        Py_DECREF(fractionsImage_obj);  // Drop reference to original array
+        fractionsImage_obj = temp;      // Assign the new one
     }
 
     return PyArray_Return(fractionsImage_obj);
