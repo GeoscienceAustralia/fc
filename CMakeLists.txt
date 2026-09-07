@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 project(unmiximage LANGUAGES Fortran C)
 
 # Find Python 3 and its development headers
-find_package(Python3 COMPONENTS Development NumPy REQUIRED)
+find_package(Python3 COMPONENTS Development.Module NumPy REQUIRED)
 
 # Define the source files (both Fortran and C)
 set(SOURCES
