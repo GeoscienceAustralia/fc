@@ -3,6 +3,8 @@ name: Publish to PyPI
 on:
   release:
     types: [published]
+  pull_request:
+  push:
 
 jobs:
   build_wheels:
