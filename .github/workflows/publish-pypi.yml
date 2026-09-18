@@ -3,6 +3,8 @@ name: Publish to PyPI
 on:
   release:
     types: [published]
+  pull_request:
+  push:
 
 jobs:
   build_wheels:
@@ -26,7 +28,7 @@ jobs:
           path: wheelhouse/*.whl
 
   publish:
-    if: github.repository == 'GeoscienceAustralia/fc'
+    if: github.event.action == 'published' && github.repository == 'GeoscienceAustralia/fc'
     needs: build_wheels
     runs-on: ubuntu-latest
 
